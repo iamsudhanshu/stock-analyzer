@@ -31,6 +31,41 @@ const config = {
     maxRetriesPerRequest: 3
   },
 
+  // Ollama Configuration
+  ollama: {
+    baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
+    defaultModel: process.env.OLLAMA_MODEL || 'llama3.1:8b',
+    timeout: parseInt(process.env.OLLAMA_TIMEOUT) || 30000,
+    maxRetries: parseInt(process.env.OLLAMA_MAX_RETRIES) || 3,
+    enabled: process.env.OLLAMA_ENABLED !== 'false', // Default to enabled
+    
+    // Model preferences for different tasks
+    models: {
+      sentiment: process.env.OLLAMA_SENTIMENT_MODEL || 'llama3.1:8b',
+      analysis: process.env.OLLAMA_ANALYSIS_MODEL || 'llama3.1:8b',
+      technical: process.env.OLLAMA_TECHNICAL_MODEL || 'llama3.1:8b',
+      economic: process.env.OLLAMA_ECONOMIC_MODEL || 'llama3.1:8b'
+    },
+    
+    // Temperature settings for different tasks
+    temperatures: {
+      sentiment: 0.3,
+      analysis: 0.4,
+      technical: 0.3,
+      economic: 0.3,
+      general: 0.7
+    },
+    
+    // Model requirements and recommendations
+    recommendedModels: [
+      'llama3.1:8b',
+      'llama3.1:70b',
+      'mistral:7b',
+      'phi3:medium',
+      'qwen2:7b'
+    ]
+  },
+
   // Database Configuration
   database: {
     mongoUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/stock_analysis'

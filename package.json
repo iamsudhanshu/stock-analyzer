@@ -1,20 +1,23 @@
 {
   "name": "stock-analysis-app",
   "version": "1.0.0",
-  "description": "Multi-AI-agent stock analysis application with real-time recommendations",
+  "description": "AI-powered multi-agent stock analysis with Ollama LLM integration for institutional-quality insights",
   "main": "index.js",
   "scripts": {
     "start": "docker-compose up",
     "dev": "docker-compose -f docker-compose.dev.yml up",
+    "dev:manual": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm start\"",
+    "start:ai": "./scripts/start-with-ollama.sh",
     "build": "npm run build:backend && npm run build:frontend",
     "build:backend": "cd backend && npm run build",
     "build:frontend": "cd frontend && npm run build",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "setup:ollama": "curl -fsSL https://ollama.ai/install.sh | sh && ollama pull llama3.1:8b",
     "test": "npm run test:backend && npm run test:frontend",
     "test:backend": "cd backend && npm test",
     "test:frontend": "cd frontend && npm test"
   },
-  "keywords": ["stock-analysis", "ai-agents", "investment", "react", "nodejs"],
+  "keywords": ["stock-analysis", "ai-agents", "llm", "ollama", "investment", "react", "nodejs", "financial-ai"],
   "author": "Your Name",
   "license": "MIT",
   "devDependencies": {

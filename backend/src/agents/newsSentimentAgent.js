@@ -4,6 +4,7 @@ const Sentiment = require('sentiment');
 const BaseAgent = require('./BaseAgent');
 const config = require('../config');
 const logger = require('../utils/logger');
+const OllamaService = require('../utils/ollama');
 
 class NewsSentimentAgent extends BaseAgent {
   constructor() {
@@ -14,11 +15,30 @@ class NewsSentimentAgent extends BaseAgent {
     );
     
     this.sentiment = new Sentiment();
+    this.ollama = new OllamaService();
+    this.ollamaEnabled = false;
     this.newsProviders = [
       { name: 'newsApi', priority: 1, rateLimit: { requests: 100, windowMs: 86400000 } },
       { name: 'newsData', priority: 2, rateLimit: { requests: 2000, windowMs: 86400000 } },
       { name: 'webz', priority: 3, rateLimit: { requests: 1000, windowMs: 2592000000 } }
     ];
+    
+    // Initialize Ollama service
+    this.initializeOllama();
+  }
+
+  async initializeOllama() {
+    try {
+      this.ollamaEnabled = await this.ollama.isAvailable();
+      if (this.ollamaEnabled) {
+        logger.info('NewsSentimentAgent: Ollama service available - LLM-enhanced sentiment analysis enabled');
+      } else {
+        logger.warn('NewsSentimentAgent: Ollama not available - using traditional sentiment analysis');
+      }
+    } catch (error) {
+      logger.error('NewsSentimentAgent: Error initializing Ollama:', error.message);
+      this.ollamaEnabled = false;
+    }
   }
 
   async handleRequest(payload, requestId) {
@@ -36,8 +56,8 @@ class NewsSentimentAgent extends BaseAgent {
       
       await this.sendProgress(requestId, 40, 'Analyzing sentiment...');
 
-      // Analyze sentiment
-      const sentimentAnalysis = this.analyzeSentiment(articles);
+      // Analyze sentiment - enhanced with LLM if available
+      const sentimentAnalysis = await this.analyzeSentiment(articles, symbol);
       
       await this.sendProgress(requestId, 70, 'Processing social media signals...');
 
@@ -217,7 +237,7 @@ class NewsSentimentAgent extends BaseAgent {
     return articles;
   }
 
-  analyzeSentiment(articles) {
+  async analyzeSentiment(articles, symbol) {
     if (!articles || articles.length === 0) {
       return {
         overallSentiment: 'neutral',
@@ -225,15 +245,18 @@ class NewsSentimentAgent extends BaseAgent {
         sentimentDistribution: { positive: 0, neutral: 0, negative: 0 },
         totalArticles: 0,
         averageScore: 0,
-        sentimentTrend: 'stable'
+        sentimentTrend: 'stable',
+        llmEnhanced: false
       };
     }
 
+    // Traditional sentiment analysis
     let totalScore = 0;
     let positive = 0;
     let negative = 0;
     let neutral = 0;
     const dailyScores = {};
+    const articleSentiments = [];
 
     articles.forEach(article => {
       // Analyze title and description
@@ -259,6 +282,12 @@ class NewsSentimentAgent extends BaseAgent {
         dailyScores[date] = [];
       }
       dailyScores[date].push(normalizedScore);
+      
+      articleSentiments.push({
+        title: article.title,
+        traditionalScore: normalizedScore,
+        date: article.publishedAt
+      });
     });
 
     const averageScore = totalScore / articles.length;
@@ -271,7 +300,7 @@ class NewsSentimentAgent extends BaseAgent {
       overallSentiment = 'negative';
     }
 
-    return {
+    const baseAnalysis = {
       overallSentiment,
       sentimentScore: parseFloat(averageScore.toFixed(3)),
       sentimentDistribution: {
@@ -282,8 +311,35 @@ class NewsSentimentAgent extends BaseAgent {
       totalArticles: articles.length,
       averageScore: parseFloat(averageScore.toFixed(3)),
       sentimentTrend,
-      dailyBreakdown: this.getDailySentimentBreakdown(dailyScores)
+      dailyBreakdown: this.getDailySentimentBreakdown(dailyScores),
+      llmEnhanced: false
     };
+
+    // Enhance with LLM analysis if available
+    if (this.ollamaEnabled && articles.length > 0) {
+      try {
+        logger.debug(`Enhancing sentiment analysis with LLM for ${symbol}`);
+        
+        const llmAnalysis = await this.performLLMSentimentAnalysis(articles, symbol, baseAnalysis);
+        if (llmAnalysis) {
+          // Merge LLM insights with traditional analysis
+          return {
+            ...baseAnalysis,
+            llmEnhanced: true,
+            llmInsights: llmAnalysis,
+            enhancedSentimentScore: llmAnalysis.adjustedScore || baseAnalysis.sentimentScore,
+            marketContext: llmAnalysis.marketContext,
+            keyThemes: llmAnalysis.keyThemes,
+            confidenceLevel: llmAnalysis.confidence,
+            summary: llmAnalysis.summary
+          };
+        }
+      } catch (error) {
+        logger.warn(`LLM sentiment analysis failed for ${symbol}:`, error.message);
+      }
+    }
+
+    return baseAnalysis;
   }
 
   calculateSentimentTrend(dailyScores) {
@@ -357,6 +413,134 @@ class NewsSentimentAgent extends BaseAgent {
       seen.add(key);
       return true;
     });
+  }
+
+  // ============ LLM-Enhanced Sentiment Analysis ============
+
+  async performLLMSentimentAnalysis(articles, symbol, baseAnalysis) {
+    try {
+      // Select most relevant articles for LLM analysis (max 10 for token efficiency)
+      const recentArticles = articles
+        .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+        .slice(0, 10);
+
+      // Prepare news text for analysis
+      const newsText = recentArticles.map(article => ({
+        title: article.title,
+        description: article.description || '',
+        source: article.source,
+        date: moment(article.publishedAt).format('MMM DD, YYYY')
+      }));
+
+      const prompt = `Analyze the financial sentiment for ${symbol} based on these recent news articles:
+
+${newsText.map((article, idx) => 
+`${idx + 1}. "${article.title}"
+   Source: ${article.source} (${article.date})
+   ${article.description ? `Description: ${article.description.substring(0, 200)}...` : ''}
+`).join('\n')}
+
+Traditional sentiment analysis shows:
+- Overall Sentiment: ${baseAnalysis.overallSentiment}
+- Score: ${baseAnalysis.sentimentScore} (-1 to 1 scale)
+- Distribution: ${baseAnalysis.sentimentDistribution.positive}% positive, ${baseAnalysis.sentimentDistribution.negative}% negative
+
+Please provide enhanced financial sentiment analysis considering:
+1. Market context and industry factors
+2. Key themes and topics mentioned
+3. Potential market impact
+4. Confidence in analysis
+5. Forward-looking sentiment implications
+
+Format as JSON:
+{
+    "adjustedScore": 0.65,
+    "confidence": 0.85,
+    "marketContext": "Analysis of broader market implications",
+    "keyThemes": ["earnings", "growth", "competition"],
+    "summary": "Comprehensive sentiment summary",
+    "bullishFactors": ["factor1", "factor2"],
+    "bearishFactors": ["factor1", "factor2"],
+    "marketImpact": "short-term|medium-term|long-term impact assessment",
+    "sectorImplications": "How this affects the broader sector"
+}`;
+
+      const response = await this.ollama.generate(prompt, {
+        temperature: 0.3,
+        maxTokens: 1500
+      });
+
+      return this.ollama.parseJsonResponse(response.text, {
+        adjustedScore: baseAnalysis.sentimentScore,
+        confidence: 0.5,
+        marketContext: 'Enhanced analysis unavailable',
+        keyThemes: [],
+        summary: baseAnalysis.overallSentiment + ' sentiment detected',
+        bullishFactors: [],
+        bearishFactors: [],
+        marketImpact: 'Unable to determine',
+        sectorImplications: 'Analysis unavailable'
+      });
+
+    } catch (error) {
+      logger.error('LLM sentiment analysis failed:', error);
+      return null;
+    }
+  }
+
+  async analyzeBatchSentiment(articles, symbol) {
+    // Batch analysis for improved efficiency when processing many articles
+    if (!this.ollamaEnabled || !articles || articles.length === 0) {
+      return null;
+    }
+
+    try {
+      const batches = [];
+      const batchSize = 5;
+      
+      for (let i = 0; i < articles.length; i += batchSize) {
+        batches.push(articles.slice(i, i + batchSize));
+      }
+
+      const batchResults = [];
+      
+      for (const batch of batches) {
+        const batchText = batch.map(article => 
+          `"${article.title}" - ${article.description || ''}`.substring(0, 300)
+        ).join('\n\n');
+
+        const result = await this.ollama.analyzeSentiment(
+          batchText, 
+          `Financial news analysis for ${symbol}`
+        );
+        
+        if (result) {
+          batchResults.push(result);
+        }
+        
+        // Small delay between batches
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      // Combine batch results
+      if (batchResults.length > 0) {
+        const avgScore = batchResults.reduce((sum, result) => sum + (result.score || 0), 0) / batchResults.length;
+        const avgConfidence = batchResults.reduce((sum, result) => sum + (result.confidence || 0), 0) / batchResults.length;
+        
+        return {
+          score: avgScore,
+          confidence: avgConfidence,
+          sentiment: avgScore > 0.1 ? 'bullish' : avgScore < -0.1 ? 'bearish' : 'neutral',
+          batchCount: batchResults.length,
+          details: batchResults
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      logger.error('Batch sentiment analysis failed:', error);
+      return null;
+    }
   }
 }
 

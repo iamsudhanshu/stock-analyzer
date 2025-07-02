@@ -1,6 +1,7 @@
 const BaseAgent = require('./BaseAgent');
 const config = require('../config');
 const logger = require('../utils/logger');
+const OllamaService = require('../utils/ollama');
 
 class AnalysisAgent extends BaseAgent {
   constructor() {
@@ -12,6 +13,40 @@ class AnalysisAgent extends BaseAgent {
     
     this.pendingAnalyses = new Map();
     this.dataCollectionTimeout = 30000; // 30 seconds timeout
+    this.ollama = new OllamaService();
+    this.ollamaEnabled = false;
+    
+    // Check Ollama availability
+    this.initializeOllama();
+  }
+
+  async initializeOllama() {
+    try {
+      this.ollamaEnabled = await this.ollama.isAvailable();
+      if (this.ollamaEnabled) {
+        logger.info('Ollama service available - LLM-enhanced analysis enabled');
+        
+        // Optionally pull a recommended model if not available
+        const models = await this.ollama.getModels();
+        const hasRecommendedModel = models.some(model => 
+          model.name.includes('llama3.1') || 
+          model.name.includes('mistral') ||
+          model.name.includes('phi3')
+        );
+        
+        if (!hasRecommendedModel) {
+          logger.info('Pulling recommended model for analysis...');
+          await this.ollama.pullModel('llama3.1:8b').catch(err => {
+            logger.warn('Failed to pull model:', err.message);
+          });
+        }
+      } else {
+        logger.warn('Ollama not available - using traditional analysis methods');
+      }
+    } catch (error) {
+      logger.error('Error initializing Ollama:', error.message);
+      this.ollamaEnabled = false;
+    }
   }
 
   async handleRequest(payload, requestId) {
@@ -134,17 +169,27 @@ class AnalysisAgent extends BaseAgent {
       const newsData = receivedData.NewsSentimentAgent || {};
       const economicData = receivedData.EconomicIndicatorAgent || {};
 
-      // Calculate composite scores
+      // Calculate composite scores (traditional method)
       const scores = this.calculateCompositeScores(stockData, newsData, economicData);
       
-      // Generate recommendations for different time horizons
-      const recommendations = this.generateRecommendations(scores, stockData, newsData, economicData);
+      // Generate recommendations - enhanced with LLM if available
+      const recommendations = await this.generateRecommendations(scores, stockData, newsData, economicData);
       
-      // Assess risks
-      const riskAssessment = this.assessRisks(stockData, newsData, economicData);
+      // Assess risks - enhanced with LLM insights
+      const riskAssessment = await this.assessRisks(stockData, newsData, economicData);
       
-      // Generate insights and explanations
-      const insights = this.generateInsights(stockData, newsData, economicData, scores);
+      // Generate insights and explanations - LLM-powered when available
+      const insights = await this.generateInsights(stockData, newsData, economicData, scores);
+
+      // LLM-powered market context analysis
+      let marketContext = null;
+      if (this.ollamaEnabled) {
+        try {
+          marketContext = await this.generateMarketContext(symbol, scores, stockData, newsData, economicData);
+        } catch (error) {
+          logger.warn('LLM market context generation failed:', error.message);
+        }
+      }
 
       return {
         symbol,
@@ -153,8 +198,10 @@ class AnalysisAgent extends BaseAgent {
           recommendations,
           riskAssessment,
           insights,
+          marketContext,
           dataQuality: this.assessDataQuality(receivedData),
-          generatedAt: new Date().toISOString()
+          generatedAt: new Date().toISOString(),
+          llmEnhanced: this.ollamaEnabled
         },
         rawData: {
           stockData,
@@ -348,10 +395,10 @@ class AnalysisAgent extends BaseAgent {
     return Math.max(0, Math.min(100, score));
   }
 
-  generateRecommendations(scores, stockData, newsData, economicData) {
+  async generateRecommendations(scores, stockData, newsData, economicData) {
     const recommendations = {};
 
-    // Generate recommendations for each time horizon
+    // Generate traditional recommendations first
     Object.entries(config.investmentHorizons).forEach(([horizon, details]) => {
       recommendations[horizon] = this.generateHorizonRecommendation(
         horizon,
@@ -362,6 +409,55 @@ class AnalysisAgent extends BaseAgent {
         economicData
       );
     });
+
+    // Enhance with LLM analysis if available
+    if (this.ollamaEnabled) {
+      try {
+        logger.debug('Generating LLM-enhanced investment recommendations');
+        
+        const llmRecommendations = await this.ollama.generateInvestmentRecommendation({
+          technical: {
+            score: scores.technical,
+            indicators: stockData.technicalIndicators,
+            trend: this.determinePriceTrend(stockData),
+            currentPrice: stockData.currentPrice
+          },
+          sentiment: {
+            score: scores.sentiment,
+            newsSentiment: newsData.sentimentAnalysis?.sentimentScore,
+            socialSentiment: newsData.socialSentiment?.score,
+            summary: newsData.sentimentAnalysis?.summary
+          },
+          economic: {
+            regime: economicData.regimeAnalysis?.regime,
+            indicators: economicData.indicators,
+            score: scores.economic
+          }
+        });
+
+        // Merge LLM insights with traditional recommendations
+        Object.keys(recommendations).forEach(horizon => {
+          if (llmRecommendations[horizon]) {
+            recommendations[horizon] = {
+              ...recommendations[horizon],
+              llmInsights: {
+                reasoning: llmRecommendations[horizon].reasoning,
+                confidence: llmRecommendations[horizon].confidence,
+                keyFactors: llmRecommendations.keyFactors || [],
+                riskLevel: llmRecommendations.riskLevel
+              },
+              enhancedExplanation: llmRecommendations[horizon].reasoning
+            };
+          }
+        });
+
+        // Add overall LLM assessment
+        recommendations.llmOverallAssessment = llmRecommendations.overallAssessment;
+
+      } catch (error) {
+        logger.warn('LLM recommendation enhancement failed:', error.message);
+      }
+    }
 
     return recommendations;
   }
@@ -451,7 +547,7 @@ class AnalysisAgent extends BaseAgent {
     };
   }
 
-  assessRisks(stockData, newsData, economicData) {
+  async assessRisks(stockData, newsData, economicData) {
     const risks = {
       overall: 'MEDIUM',
       factors: [],
@@ -490,6 +586,29 @@ class AnalysisAgent extends BaseAgent {
         risks.mitigationStrategies.push('Regular monitoring recommended');
       }
 
+      // Enhance with LLM analysis if available
+      if (this.ollamaEnabled) {
+        try {
+          const llmRiskAnalysis = await this.generateLLMRiskAnalysis(stockData, newsData, economicData);
+          if (llmRiskAnalysis) {
+            risks.llmInsights = llmRiskAnalysis;
+            risks.detailedAnalysis = llmRiskAnalysis.analysis;
+            
+            // Incorporate LLM risk factors
+            if (llmRiskAnalysis.additionalRisks) {
+              risks.factors.push(...llmRiskAnalysis.additionalRisks);
+            }
+            
+            // Add LLM mitigation strategies
+            if (llmRiskAnalysis.strategies) {
+              risks.mitigationStrategies.push(...llmRiskAnalysis.strategies);
+            }
+          }
+        } catch (error) {
+          logger.warn('LLM risk analysis failed:', error.message);
+        }
+      }
+
     } catch (error) {
       logger.error('Error assessing risks:', error);
       risks.factors.push('Risk assessment incomplete');
@@ -498,15 +617,16 @@ class AnalysisAgent extends BaseAgent {
     return risks;
   }
 
-  generateInsights(stockData, newsData, economicData, scores) {
+  async generateInsights(stockData, newsData, economicData, scores) {
     const insights = {
       summary: '',
       keyPoints: [],
-      marketContext: ''
+      marketContext: '',
+      llmEnhancedInsights: null
     };
 
     try {
-      // Generate summary based on overall score
+      // Generate traditional summary based on overall score
       const overallScore = scores.overall;
       if (overallScore >= 70) {
         insights.summary = 'Strong positive indicators across multiple dimensions suggest favorable investment opportunity.';
@@ -518,7 +638,7 @@ class AnalysisAgent extends BaseAgent {
         insights.summary = 'Concerning signals suggest increased caution warranted.';
       }
 
-      // Key points
+      // Traditional key points
       if (scores.technical > 60) {
         insights.keyPoints.push('Technical analysis shows bullish signals');
       }
@@ -531,9 +651,34 @@ class AnalysisAgent extends BaseAgent {
         insights.keyPoints.push('Economic environment is supportive');
       }
 
-      // Market context
+      // Traditional market context
       if (economicData.regimeAnalysis?.regime) {
         insights.marketContext = `Current economic regime is ${economicData.regimeAnalysis.regime}`;
+      }
+
+      // Enhance with LLM analysis if available
+      if (this.ollamaEnabled) {
+        try {
+          const llmInsights = await this.generateLLMInsights(stockData, newsData, economicData, scores);
+          if (llmInsights) {
+            insights.llmEnhancedInsights = llmInsights;
+            
+            // Enhance traditional insights with LLM analysis
+            if (llmInsights.enhancedSummary) {
+              insights.summary = llmInsights.enhancedSummary;
+            }
+            
+            if (llmInsights.additionalKeyPoints) {
+              insights.keyPoints.push(...llmInsights.additionalKeyPoints);
+            }
+            
+            if (llmInsights.detailedMarketContext) {
+              insights.marketContext = llmInsights.detailedMarketContext;
+            }
+          }
+        } catch (error) {
+          logger.warn('LLM insights generation failed:', error.message);
+        }
       }
 
     } catch (error) {
@@ -584,6 +729,195 @@ class AnalysisAgent extends BaseAgent {
     }
 
     return quality;
+  }
+
+  // ============ LLM-Enhanced Helper Methods ============
+
+  async generateMarketContext(symbol, scores, stockData, newsData, economicData) {
+    try {
+      const prompt = `Provide comprehensive market context analysis for ${symbol}:
+
+CURRENT SCORES:
+- Technical: ${scores.technical}/100
+- Sentiment: ${scores.sentiment}/100  
+- Economic: ${scores.economic}/100
+- Overall: ${scores.overall}/100
+
+MARKET DATA:
+- Current Price: $${stockData.currentPrice?.price || 'N/A'}
+- Price Change: ${stockData.currentPrice?.changePercent || 'N/A'}%
+- Volume Ratio: ${stockData.volumeAnalysis?.volumeRatio || 'N/A'}
+
+SENTIMENT SUMMARY:
+- News Sentiment: ${newsData.sentimentAnalysis?.sentimentScore || 'N/A'}
+- Article Count: ${newsData.sentimentAnalysis?.totalArticles || 'N/A'}
+
+ECONOMIC ENVIRONMENT:
+- Regime: ${economicData.regimeAnalysis?.regime || 'N/A'}
+- Confidence: ${economicData.regimeAnalysis?.confidence || 'N/A'}
+
+Provide a comprehensive market context analysis that explains:
+1. Current market position and trends
+2. Key factors driving the current situation
+3. Potential catalysts and risks
+4. Sector/industry dynamics
+5. Overall market environment impact
+
+Format as detailed narrative with clear insights.`;
+
+      const response = await this.ollama.generate(prompt, {
+        temperature: 0.4,
+        maxTokens: 1500
+      });
+
+      return response.text;
+    } catch (error) {
+      logger.error('Market context generation failed:', error);
+      return null;
+    }
+  }
+
+  async generateLLMRiskAnalysis(stockData, newsData, economicData) {
+    try {
+      const prompt = `Analyze investment risks based on the following data:
+
+TECHNICAL DATA:
+- RSI: ${this.getLatestIndicator(stockData.technicalIndicators?.rsi)}
+- Price Trend: ${this.determinePriceTrend(stockData)}
+- Volume Analysis: ${JSON.stringify(stockData.volumeAnalysis || {})}
+
+SENTIMENT DATA:
+- Sentiment Score: ${newsData.sentimentAnalysis?.sentimentScore || 'N/A'}
+- Sentiment Trend: ${newsData.sentimentAnalysis?.sentimentTrend || 'N/A'}
+
+ECONOMIC DATA:
+- Economic Regime: ${economicData.regimeAnalysis?.regime || 'N/A'}
+- Risk Factors: ${JSON.stringify(economicData.regimeAnalysis?.riskFactors || [])}
+
+Identify and analyze:
+1. Primary risk factors
+2. Secondary/emerging risks
+3. Risk probability and impact
+4. Specific mitigation strategies
+5. Risk timeline (short/medium/long term)
+
+Format as JSON:
+{
+    "analysis": "Detailed risk analysis narrative",
+    "additionalRisks": ["risk1", "risk2"],
+    "strategies": ["strategy1", "strategy2"],
+    "riskLevel": "low|medium|high",
+    "timeframe": "Risk timeline analysis"
+}`;
+
+      const response = await this.ollama.generate(prompt, {
+        temperature: 0.3,
+        maxTokens: 1200
+      });
+
+      return this.ollama.parseJsonResponse(response.text, {
+        analysis: 'Risk analysis unavailable',
+        additionalRisks: [],
+        strategies: [],
+        riskLevel: 'medium',
+        timeframe: 'Unable to determine'
+      });
+    } catch (error) {
+      logger.error('LLM risk analysis failed:', error);
+      return null;
+    }
+  }
+
+  async generateLLMInsights(stockData, newsData, economicData, scores) {
+    try {
+      const prompt = `Generate comprehensive investment insights based on the analysis:
+
+ANALYSIS SCORES:
+- Technical: ${scores.technical}/100
+- Sentiment: ${scores.sentiment}/100
+- Economic: ${scores.economic}/100
+- Overall: ${scores.overall}/100
+
+KEY DATA POINTS:
+- Current Price: $${stockData.currentPrice?.price || 'N/A'}
+- Technical Indicators: ${JSON.stringify(this.getKeyIndicators(stockData))}
+- Sentiment Summary: ${newsData.sentimentAnalysis?.summary || 'N/A'}
+- Economic Regime: ${economicData.regimeAnalysis?.regime || 'N/A'}
+
+Provide:
+1. Enhanced summary that explains the investment thesis
+2. Additional key insights not captured in basic analysis
+3. Detailed market context with sector/industry perspective
+4. Forward-looking analysis and potential scenarios
+
+Format as JSON:
+{
+    "enhancedSummary": "Comprehensive investment thesis",
+    "additionalKeyPoints": ["insight1", "insight2"],
+    "detailedMarketContext": "Market context with industry perspective",
+    "forwardLookingAnalysis": "Potential scenarios and outlook",
+    "investmentThesis": "Core investment argument"
+}`;
+
+      const response = await this.ollama.generate(prompt, {
+        temperature: 0.4,
+        maxTokens: 1800
+      });
+
+      return this.ollama.parseJsonResponse(response.text, {
+        enhancedSummary: 'Enhanced analysis unavailable',
+        additionalKeyPoints: [],
+        detailedMarketContext: 'Market context unavailable',
+        forwardLookingAnalysis: 'Forward-looking analysis unavailable',
+        investmentThesis: 'Investment thesis unavailable'
+      });
+    } catch (error) {
+      logger.error('LLM insights generation failed:', error);
+      return null;
+    }
+  }
+
+  // ============ Utility Helper Methods ============
+
+  determinePriceTrend(stockData) {
+    try {
+      if (!stockData.currentPrice) return 'unknown';
+      
+      const changePercent = stockData.currentPrice.changePercent;
+      if (changePercent > 2) return 'strong bullish';
+      if (changePercent > 0.5) return 'bullish';
+      if (changePercent < -2) return 'strong bearish';
+      if (changePercent < -0.5) return 'bearish';
+      return 'neutral';
+    } catch (error) {
+      return 'unknown';
+    }
+  }
+
+  getLatestIndicator(indicatorArray) {
+    try {
+      if (Array.isArray(indicatorArray) && indicatorArray.length > 0) {
+        return indicatorArray[indicatorArray.length - 1];
+      }
+      return 'N/A';
+    } catch (error) {
+      return 'N/A';
+    }
+  }
+
+  getKeyIndicators(stockData) {
+    try {
+      const indicators = stockData.technicalIndicators || {};
+      return {
+        rsi: this.getLatestIndicator(indicators.rsi),
+        sma20: this.getLatestIndicator(indicators.sma?.sma20),
+        sma50: this.getLatestIndicator(indicators.sma?.sma50),
+        macd: this.getLatestIndicator(indicators.macd),
+        volume: stockData.volumeAnalysis?.volumeRatio
+      };
+    } catch (error) {
+      return {};
+    }
   }
 }
 

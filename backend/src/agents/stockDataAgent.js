@@ -4,6 +4,7 @@ const { SMA, EMA, RSI, MACD, BollingerBands, Stochastic } = require('technicalin
 const BaseAgent = require('./BaseAgent');
 const config = require('../config');
 const logger = require('../utils/logger');
+const OllamaService = require('../utils/ollama');
 
 class StockDataAgent extends BaseAgent {
   constructor() {
@@ -18,6 +19,26 @@ class StockDataAgent extends BaseAgent {
       { name: 'finnhub', priority: 2, rateLimit: { requests: 60, windowMs: 60000 } },
       { name: 'twelveData', priority: 3, rateLimit: { requests: 800, windowMs: 86400000 } }
     ];
+    
+    this.ollama = new OllamaService();
+    this.ollamaEnabled = false;
+    
+    // Initialize Ollama service
+    this.initializeOllama();
+  }
+
+  async initializeOllama() {
+    try {
+      this.ollamaEnabled = await this.ollama.isAvailable();
+      if (this.ollamaEnabled) {
+        logger.info('StockDataAgent: Ollama service available - LLM-enhanced technical analysis enabled');
+      } else {
+        logger.warn('StockDataAgent: Ollama not available - using traditional technical analysis');
+      }
+    } catch (error) {
+      logger.error('StockDataAgent: Error initializing Ollama:', error.message);
+      this.ollamaEnabled = false;
+    }
   }
 
   async handleRequest(payload, requestId) {
@@ -48,6 +69,17 @@ class StockDataAgent extends BaseAgent {
       // Get volume analysis
       const volumeAnalysis = this.analyzeVolume(historicalData);
       
+      // LLM-enhanced technical pattern analysis
+      let patternAnalysis = null;
+      if (this.ollamaEnabled) {
+        try {
+          await this.sendProgress(requestId, 90, 'Analyzing chart patterns with AI...');
+          patternAnalysis = await this.analyzeChartPatterns(symbol, historicalData, technicalIndicators);
+        } catch (error) {
+          logger.warn(`LLM pattern analysis failed for ${symbol}:`, error.message);
+        }
+      }
+      
       await this.sendProgress(requestId, 100, 'Stock data analysis complete');
 
       return {
@@ -56,6 +88,8 @@ class StockDataAgent extends BaseAgent {
         historical: historicalData,
         technicalIndicators,
         volumeAnalysis,
+        patternAnalysis,
+        llmEnhanced: this.ollamaEnabled,
         lastUpdated: new Date().toISOString()
       };
 
@@ -317,6 +351,188 @@ class StockDataAgent extends BaseAgent {
     if (change > 0.2) return 'increasing';
     if (change < -0.2) return 'decreasing';
     return 'stable';
+  }
+
+  // ============ LLM-Enhanced Technical Analysis ============
+
+  async analyzeChartPatterns(symbol, historicalData, technicalIndicators) {
+    if (!this.ollamaEnabled || !historicalData || historicalData.length < 20) {
+      return null;
+    }
+
+    try {
+      // Prepare technical data summary for LLM analysis
+      const recentData = historicalData.slice(-30); // Last 30 days
+      const priceData = this.preparePriceDataSummary(recentData);
+      const indicatorSummary = this.prepareIndicatorSummary(technicalIndicators);
+
+      const prompt = `Analyze the technical chart patterns and indicators for ${symbol}:
+
+RECENT PRICE ACTION (Last 30 days):
+${priceData}
+
+TECHNICAL INDICATORS:
+${indicatorSummary}
+
+Please identify and analyze:
+1. Chart patterns (triangles, flags, head & shoulders, etc.)
+2. Support and resistance levels
+3. Trend analysis and momentum
+4. Volume patterns and their significance
+5. Entry and exit signals
+6. Risk levels and stop-loss suggestions
+
+Format as JSON:
+{
+    "patterns": {
+        "identified": ["pattern1", "pattern2"],
+        "primary": "Most significant pattern",
+        "confidence": 0.85,
+        "description": "Detailed pattern description"
+    },
+    "supportResistance": {
+        "support": [145.50, 142.80],
+        "resistance": [152.75, 155.20],
+        "keyLevel": 150.00,
+        "strength": "strong|moderate|weak"
+    },
+    "trend": {
+        "shortTerm": "bullish|bearish|neutral",
+        "mediumTerm": "bullish|bearish|neutral",
+        "momentum": "increasing|decreasing|stable",
+        "strength": "strong|moderate|weak"
+    },
+    "signals": {
+        "buy": ["signal1", "signal2"],
+        "sell": ["signal1", "signal2"],
+        "current": "buy|sell|hold",
+        "confidence": 0.75
+    },
+    "riskManagement": {
+        "stopLoss": 147.25,
+        "riskLevel": "low|medium|high",
+        "positionSizing": "conservative|normal|aggressive"
+    },
+    "outlook": "Comprehensive technical outlook and next moves"
+}`;
+
+      const response = await this.ollama.generate(prompt, {
+        temperature: config.ollama.temperatures.technical,
+        maxTokens: 2000,
+        model: config.ollama.models.technical
+      });
+
+      return this.ollama.parseJsonResponse(response.text, {
+        patterns: { identified: [], primary: 'No clear pattern', confidence: 0.5 },
+        supportResistance: { support: [], resistance: [], keyLevel: null, strength: 'moderate' },
+        trend: { shortTerm: 'neutral', mediumTerm: 'neutral', momentum: 'stable', strength: 'moderate' },
+        signals: { buy: [], sell: [], current: 'hold', confidence: 0.5 },
+        riskManagement: { stopLoss: null, riskLevel: 'medium', positionSizing: 'normal' },
+        outlook: 'Technical analysis unavailable'
+      });
+
+    } catch (error) {
+      logger.error('Chart pattern analysis failed:', error);
+      return null;
+    }
+  }
+
+  preparePriceDataSummary(recentData) {
+    return recentData.map((day, index) => {
+      const change = index > 0 ? ((day.close - recentData[index - 1].close) / recentData[index - 1].close * 100).toFixed(2) : '0.00';
+      return `${day.date}: Open $${day.open}, High $${day.high}, Low $${day.low}, Close $${day.close} (${change > 0 ? '+' : ''}${change}%), Vol ${(day.volume / 1000000).toFixed(1)}M`;
+    }).join('\n');
+  }
+
+  prepareIndicatorSummary(indicators) {
+    if (!indicators) return 'Technical indicators not available';
+
+    const summary = [];
+
+    // RSI
+    if (indicators.rsi && indicators.rsi.length > 0) {
+      const latestRSI = indicators.rsi[indicators.rsi.length - 1];
+      summary.push(`RSI (14): ${latestRSI.toFixed(2)} - ${latestRSI > 70 ? 'Overbought' : latestRSI < 30 ? 'Oversold' : 'Neutral'}`);
+    }
+
+    // Moving Averages
+    if (indicators.sma?.sma20?.length > 0) {
+      summary.push(`SMA20: ${indicators.sma.sma20[indicators.sma.sma20.length - 1].toFixed(2)}`);
+    }
+    if (indicators.sma?.sma50?.length > 0) {
+      summary.push(`SMA50: ${indicators.sma.sma50[indicators.sma.sma50.length - 1].toFixed(2)}`);
+    }
+
+    // MACD
+    if (indicators.macd && indicators.macd.length > 0) {
+      const latestMACD = indicators.macd[indicators.macd.length - 1];
+      summary.push(`MACD: ${latestMACD.MACD.toFixed(3)}, Signal: ${latestMACD.signal.toFixed(3)}, Histogram: ${latestMACD.histogram.toFixed(3)}`);
+    }
+
+    // Bollinger Bands
+    if (indicators.bollingerBands && indicators.bollingerBands.length > 0) {
+      const latestBB = indicators.bollingerBands[indicators.bollingerBands.length - 1];
+      summary.push(`Bollinger Bands: Upper ${latestBB.upper.toFixed(2)}, Middle ${latestBB.middle.toFixed(2)}, Lower ${latestBB.lower.toFixed(2)}`);
+    }
+
+    // Stochastic
+    if (indicators.stochastic && indicators.stochastic.length > 0) {
+      const latestStoch = indicators.stochastic[indicators.stochastic.length - 1];
+      summary.push(`Stochastic: %K ${latestStoch.k.toFixed(2)}, %D ${latestStoch.d.toFixed(2)}`);
+    }
+
+    return summary.join('\n');
+  }
+
+  async identifyVolumePatternsWithLLM(historicalData, symbol) {
+    if (!this.ollamaEnabled || !historicalData || historicalData.length < 20) {
+      return null;
+    }
+
+    try {
+      const volumeData = historicalData.slice(-20).map(day => ({
+        date: day.date,
+        volume: day.volume,
+        priceChange: ((day.close - day.open) / day.open * 100).toFixed(2)
+      }));
+
+      const prompt = `Analyze volume patterns for ${symbol} stock:
+
+VOLUME DATA (Last 20 days):
+${volumeData.map(d => `${d.date}: ${(d.volume / 1000000).toFixed(1)}M vol, ${d.priceChange}% price change`).join('\n')}
+
+Identify and analyze:
+1. Volume spikes and their correlation with price moves
+2. Volume patterns (accumulation, distribution, breakout)
+3. Volume trend and what it indicates
+4. Unusual volume activity and its implications
+
+Provide JSON response:
+{
+    "patterns": ["accumulation", "breakout volume"],
+    "trend": "increasing|decreasing|stable",
+    "significance": "high|medium|low",
+    "analysis": "Detailed volume pattern analysis",
+    "priceVolumeRelationship": "Volume confirms price action analysis"
+}`;
+
+      const response = await this.ollama.generate(prompt, {
+        temperature: 0.3,
+        maxTokens: 800
+      });
+
+      return this.ollama.parseJsonResponse(response.text, {
+        patterns: [],
+        trend: 'stable',
+        significance: 'medium',
+        analysis: 'Volume analysis unavailable',
+        priceVolumeRelationship: 'Unable to determine'
+      });
+
+    } catch (error) {
+      logger.error('Volume pattern analysis failed:', error);
+      return null;
+    }
   }
 }
 
