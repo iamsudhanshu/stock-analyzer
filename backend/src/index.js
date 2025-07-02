@@ -16,36 +16,45 @@ class ApplicationManager {
     this.agents = new Map();
     this.mode = process.env.START_MODE || 'all'; // 'all', 'ui-only', 'agents-only'
     this.isShuttingDown = false;
+    
+    console.log('🏗️ [ApplicationManager] Initializing with mode:', this.mode);
   }
 
   async start() {
     try {
+      console.log('🚀 [ApplicationManager] Starting Stock Analysis Application...');
       logger.info('Starting Stock Analysis Application...');
       logger.info(`Mode: ${this.mode}`);
       logger.info(`Environment: ${config.server.nodeEnv}`);
 
       // Connect to Redis first
+      console.log('🔗 [ApplicationManager] Connecting to Redis...');
       await redisClient.connect();
+      console.log('✅ [ApplicationManager] Connected to Redis successfully');
       logger.info('Connected to Redis successfully');
 
       // Create and start agents based on mode
       if (this.mode === 'all' || this.mode === 'agents-only') {
+        console.log('🤖 [ApplicationManager] Starting data agents...');
         await this.startDataAgents();
       }
 
       if (this.mode === 'all' || this.mode === 'ui-only') {
+        console.log('🌐 [ApplicationManager] Starting UI agent...');
         await this.startUIAgent();
       }
 
       // Set up graceful shutdown
       this.setupGracefulShutdown();
 
+      console.log('✅ [ApplicationManager] All agents started successfully');
       logger.info('All agents started successfully');
       
       // Log startup summary
       this.logStartupSummary();
 
     } catch (error) {
+      console.error('💥 [ApplicationManager] Failed to start application:', error);
       logger.error('Failed to start application:', error);
       await this.shutdown();
       process.exit(1);
@@ -54,6 +63,7 @@ class ApplicationManager {
 
   async startDataAgents() {
     try {
+      console.log('📊 [ApplicationManager] Creating data processing agents...');
       logger.info('Starting data processing agents...');
 
       // Create agent instances
@@ -62,23 +72,34 @@ class ApplicationManager {
       const economicIndicatorAgent = new EconomicIndicatorAgent();
       const analysisAgent = new AnalysisAgent();
 
+      console.log('📦 [ApplicationManager] Created agents:', {
+        StockDataAgent: !!stockDataAgent,
+        NewsSentimentAgent: !!newsSentimentAgent,
+        EconomicIndicatorAgent: !!economicIndicatorAgent,
+        AnalysisAgent: !!analysisAgent
+      });
+
       // Store agent references
       this.agents.set('StockDataAgent', stockDataAgent);
       this.agents.set('NewsSentimentAgent', newsSentimentAgent);
       this.agents.set('EconomicIndicatorAgent', economicIndicatorAgent);
       this.agents.set('AnalysisAgent', analysisAgent);
 
+      console.log('🔄 [ApplicationManager] Starting data agents in parallel...');
+      
       // Start all data agents in parallel
       await Promise.all([
-        stockDataAgent.start(),
-        newsSentimentAgent.start(),
-        economicIndicatorAgent.start(),
-        analysisAgent.start()
+        stockDataAgent.start().then(() => console.log('✅ [ApplicationManager] StockDataAgent started')),
+        newsSentimentAgent.start().then(() => console.log('✅ [ApplicationManager] NewsSentimentAgent started')),
+        economicIndicatorAgent.start().then(() => console.log('✅ [ApplicationManager] EconomicIndicatorAgent started')),
+        analysisAgent.start().then(() => console.log('✅ [ApplicationManager] AnalysisAgent started'))
       ]);
 
+      console.log('🎉 [ApplicationManager] All data processing agents started successfully');
       logger.info('Data processing agents started successfully');
 
     } catch (error) {
+      console.error('💥 [ApplicationManager] Failed to start data agents:', error);
       logger.error('Failed to start data agents:', error);
       throw error;
     }
@@ -86,30 +107,39 @@ class ApplicationManager {
 
   async startUIAgent() {
     try {
+      console.log('🌐 [ApplicationManager] Creating UI agent...');
       logger.info('Starting UI agent...');
 
       const uiAgent = new UIAgent();
       this.agents.set('UIAgent', uiAgent);
 
+      console.log('🔄 [ApplicationManager] Starting UI agent...');
       await uiAgent.start();
 
+      console.log(`✅ [ApplicationManager] UI agent started successfully on port ${config.server.port}`);
       logger.info(`UI agent started successfully on port ${config.server.port}`);
 
     } catch (error) {
+      console.error('💥 [ApplicationManager] Failed to start UI agent:', error);
       logger.error('Failed to start UI agent:', error);
       throw error;
     }
   }
 
   setupGracefulShutdown() {
+    console.log('🛡️ [ApplicationManager] Setting up graceful shutdown handlers...');
+    
     const signals = ['SIGINT', 'SIGTERM', 'SIGUSR2'];
     
     signals.forEach(signal => {
       process.on(signal, () => {
+        console.log(`🛑 [ApplicationManager] Received ${signal}, shutting down gracefully...`);
         logger.info(`Received ${signal}, shutting down gracefully...`);
         this.shutdown().then(() => {
+          console.log('👋 [ApplicationManager] Graceful shutdown completed');
           process.exit(0);
         }).catch(error => {
+          console.error('💥 [ApplicationManager] Error during shutdown:', error);
           logger.error('Error during shutdown:', error);
           process.exit(1);
         });
@@ -118,6 +148,7 @@ class ApplicationManager {
 
     // Handle uncaught exceptions
     process.on('uncaughtException', (error) => {
+      console.error('💥 [ApplicationManager] Uncaught exception:', error);
       logger.error('Uncaught exception:', error);
       this.shutdown().then(() => {
         process.exit(1);
@@ -126,6 +157,7 @@ class ApplicationManager {
 
     // Handle unhandled promise rejections
     process.on('unhandledRejection', (reason, promise) => {
+      console.error('💥 [ApplicationManager] Unhandled rejection at:', promise, 'reason:', reason);
       logger.error('Unhandled rejection at:', promise, 'reason:', reason);
       this.shutdown().then(() => {
         process.exit(1);
@@ -135,29 +167,41 @@ class ApplicationManager {
 
   async shutdown() {
     if (this.isShuttingDown) {
+      console.log('⏳ [ApplicationManager] Shutdown already in progress...');
       return;
     }
 
     this.isShuttingDown = true;
+    console.log('🛑 [ApplicationManager] Shutting down application...');
     logger.info('Shutting down application...');
 
     try {
       // Stop all agents
+      console.log('🔄 [ApplicationManager] Stopping all agents...');
       const shutdownPromises = Array.from(this.agents.values()).map(agent => {
-        return agent.stop().catch(error => {
+        console.log(`🔄 [ApplicationManager] Stopping ${agent.agentName}...`);
+        return agent.stop().then(() => {
+          console.log(`✅ [ApplicationManager] ${agent.agentName} stopped`);
+        }).catch(error => {
+          console.error(`💥 [ApplicationManager] Error stopping ${agent.agentName}:`, error);
           logger.error(`Error stopping ${agent.agentName}:`, error);
         });
       });
 
       // Wait for all agents to stop
       await Promise.all(shutdownPromises);
+      console.log('✅ [ApplicationManager] All agents stopped');
 
       // Disconnect from Redis
+      console.log('🔗 [ApplicationManager] Disconnecting from Redis...');
       await redisClient.disconnect();
+      console.log('✅ [ApplicationManager] Disconnected from Redis');
 
+      console.log('🏁 [ApplicationManager] Application shutdown complete');
       logger.info('Application shutdown complete');
 
     } catch (error) {
+      console.error('💥 [ApplicationManager] Error during shutdown:', error);
       logger.error('Error during shutdown:', error);
     }
   }
@@ -172,24 +216,30 @@ class ApplicationManager {
       startupTime: process.uptime()
     };
 
+    console.log('📊 [ApplicationManager] Startup summary:', summary);
     logger.info('Application startup summary:', summary);
 
     // Log configuration warnings
     if (!config.apiKeys.alphaVantage && !config.apiKeys.finnhub) {
+      console.log('⚠️ [ApplicationManager] No stock data API keys configured - using mock data');
       logger.warn('No stock data API keys configured - using mock data');
     }
 
     if (!config.apiKeys.newsApi) {
+      console.log('⚠️ [ApplicationManager] No news API key configured - using mock data');
       logger.warn('No news API key configured - using mock data');
     }
 
     if (!config.apiKeys.fred) {
+      console.log('⚠️ [ApplicationManager] No FRED API key configured - using mock economic data');
       logger.warn('No FRED API key configured - using mock economic data');
     }
   }
 
   // Health check method for monitoring
   async getHealthStatus() {
+    console.log('🔍 [ApplicationManager] Performing health check...');
+    
     const status = {
       application: {
         status: 'running',
@@ -206,6 +256,7 @@ class ApplicationManager {
     // Get health status from each agent
     for (const [name, agent] of this.agents) {
       try {
+        console.log(`🔍 [ApplicationManager] Checking health of ${name}...`);
         if (agent.healthCheck) {
           status.agents[name] = await agent.healthCheck();
         } else {
@@ -213,7 +264,9 @@ class ApplicationManager {
             status: agent.isRunning ? 'running' : 'stopped'
           };
         }
+        console.log(`✅ [ApplicationManager] ${name} health:`, status.agents[name]);
       } catch (error) {
+        console.error(`💥 [ApplicationManager] Health check failed for ${name}:`, error);
         status.agents[name] = {
           status: 'error',
           error: error.message
@@ -221,6 +274,7 @@ class ApplicationManager {
       }
     }
 
+    console.log('📊 [ApplicationManager] Overall health status:', status);
     return status;
   }
 }

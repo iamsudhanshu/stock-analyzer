@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
-import { io } from 'socket.io-client';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import io from 'socket.io-client';
 
 const SocketContext = createContext();
 
@@ -15,172 +15,155 @@ export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState(null);
-  const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 5;
 
   useEffect(() => {
-    const initializeSocket = () => {
-      const socketUrl = process.env.REACT_APP_SOCKET_URL || 'http://localhost:3001';
-      
-      const newSocket = io(socketUrl, {
-        autoConnect: true,
-        reconnection: true,
-        reconnectionAttempts: maxReconnectAttempts,
-        reconnectionDelay: 1000,
-        timeout: 20000
-      });
+    console.log('🔌 [SocketContext] Initializing socket connection...');
+    
+    // Create socket connection
+    const newSocket = io('http://localhost:3001', {
+      transports: ['websocket', 'polling'],
+      timeout: 10000,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
 
-      // Connection event handlers
-      newSocket.on('connect', () => {
-        console.log('Connected to server');
-        setIsConnected(true);
-        setConnectionError(null);
-        reconnectAttempts.current = 0;
-      });
+    // Connection event handlers
+    newSocket.on('connect', () => {
+      console.log('✅ [SocketContext] Connected to server with ID:', newSocket.id);
+      setIsConnected(true);
+      setConnectionError(null);
+    });
 
-      newSocket.on('disconnect', (reason) => {
-        console.log('Disconnected from server:', reason);
-        setIsConnected(false);
-        
-        if (reason === 'io server disconnect') {
-          // Server disconnected the socket, try to reconnect manually
-          newSocket.connect();
-        }
-      });
-
-      newSocket.on('connect_error', (error) => {
-        console.error('Connection error:', error);
-        reconnectAttempts.current += 1;
-        
-        if (reconnectAttempts.current >= maxReconnectAttempts) {
-          setConnectionError('Failed to connect to server. Please check your connection and try again.');
-        }
-      });
-
-      newSocket.on('reconnect', (attemptNumber) => {
-        console.log('Reconnected after', attemptNumber, 'attempts');
-        setIsConnected(true);
-        setConnectionError(null);
-      });
-
-      newSocket.on('reconnect_failed', () => {
-        console.error('Failed to reconnect to server');
-        setConnectionError('Connection lost. Please refresh the page to try again.');
-      });
-
-      // Server-specific event handlers
-      newSocket.on('connected', (data) => {
-        console.log('Server connection confirmed:', data);
-      });
-
-      newSocket.on('error', (error) => {
-        console.error('Socket error:', error);
-      });
-
-      setSocket(newSocket);
-
-      return newSocket;
-    };
-
-    const socketInstance = initializeSocket();
-
-    // Cleanup on unmount
-    return () => {
-      if (socketInstance) {
-        socketInstance.disconnect();
+    newSocket.on('disconnect', (reason) => {
+      console.log('❌ [SocketContext] Disconnected from server. Reason:', reason);
+      setIsConnected(false);
+      if (reason === 'io server disconnect') {
+        // Server disconnected, try to reconnect
+        newSocket.connect();
       }
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('🚫 [SocketContext] Connection error:', error);
+      setConnectionError(`Connection failed: ${error.message}`);
+      setIsConnected(false);
+    });
+
+    newSocket.on('reconnect', (attemptNumber) => {
+      console.log('🔄 [SocketContext] Reconnected after', attemptNumber, 'attempts');
+      setConnectionError(null);
+    });
+
+    newSocket.on('reconnect_error', (error) => {
+      console.error('🔄❌ [SocketContext] Reconnection failed:', error);
+      setConnectionError(`Reconnection failed: ${error.message}`);
+    });
+
+    // Analysis-specific event handlers
+    newSocket.on('progress', (data) => {
+      console.log('📊 [SocketContext] Progress update received:', data);
+    });
+
+    newSocket.on('analysisCompleted', (data) => {
+      console.log('✅ [SocketContext] Analysis completed:', data);
+    });
+
+    newSocket.on('analysisError', (data) => {
+      console.error('❌ [SocketContext] Analysis error:', data);
+    });
+
+    // Generic message handler for debugging
+    newSocket.onAny((eventName, ...args) => {
+      console.log(`📡 [SocketContext] Received event: ${eventName}`, args);
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      console.log('🔌❌ [SocketContext] Cleaning up socket connection...');
+      newSocket.off('connect');
+      newSocket.off('disconnect');
+      newSocket.off('connect_error');
+      newSocket.off('reconnect');
+      newSocket.off('reconnect_error');
+      newSocket.off('progress');
+      newSocket.off('analysisCompleted');
+      newSocket.off('analysisError');
+      newSocket.offAny();
+      newSocket.disconnect();
     };
   }, []);
 
-  // Subscribe to analysis progress updates
-  const subscribeToAnalysis = (requestId, callbacks = {}) => {
+  const subscribeToAnalysis = useCallback((requestId, callbacks) => {
+    console.log(`🔔 [SocketContext] Subscribing to analysis updates for request:`, requestId);
+    console.log('🔔 [SocketContext] Callbacks provided:', Object.keys(callbacks));
+    
     if (!socket) {
-      console.warn('Socket not connected');
+      console.error('❌ [SocketContext] Cannot subscribe - socket not available');
       return () => {};
     }
 
-    const {
-      onProgress = () => {},
-      onCompleted = () => {},
-      onError = () => {}
-    } = callbacks;
-
-    // Subscribe to the specific request
-    socket.emit('subscribe', { requestId });
-
-    // Set up event listeners
     const handleProgress = (data) => {
-      if (data.requestId === requestId) {
-        onProgress(data);
+      console.log(`📊 [SocketContext] Progress for ${requestId}:`, data);
+      if (data.requestId === requestId && callbacks.onProgress) {
+        callbacks.onProgress(data);
       }
     };
 
     const handleCompleted = (data) => {
-      if (data.requestId === requestId) {
-        onCompleted(data);
-        // Auto-unsubscribe on completion
-        socket.emit('unsubscribe', { requestId });
+      console.log(`✅ [SocketContext] Completed for ${requestId}:`, data);
+      if (data.requestId === requestId && callbacks.onCompleted) {
+        callbacks.onCompleted(data);
       }
     };
 
     const handleError = (data) => {
-      if (data.requestId === requestId) {
-        onError(data);
-        // Auto-unsubscribe on error
-        socket.emit('unsubscribe', { requestId });
+      console.error(`❌ [SocketContext] Error for ${requestId}:`, data);
+      if (data.requestId === requestId && callbacks.onError) {
+        callbacks.onError(data);
       }
     };
 
-    const handleSubscribed = (data) => {
-      if (data.requestId === requestId) {
-        console.log('Subscribed to analysis:', requestId);
-      }
-    };
-
-    // Register event listeners
+    // Subscribe to events
     socket.on('progress', handleProgress);
-    socket.on('completed', handleCompleted);
-    socket.on('error', handleError);
-    socket.on('subscribed', handleSubscribed);
+    socket.on('analysisCompleted', handleCompleted);
+    socket.on('analysisError', handleError);
 
-    // Return cleanup function
+    console.log(`✅ [SocketContext] Successfully subscribed to events for ${requestId}`);
+
+    // Return unsubscribe function
     return () => {
+      console.log(`🔕 [SocketContext] Unsubscribing from analysis updates for request:`, requestId);
       socket.off('progress', handleProgress);
-      socket.off('completed', handleCompleted);
-      socket.off('error', handleError);
-      socket.off('subscribed', handleSubscribed);
-      socket.emit('unsubscribe', { requestId });
+      socket.off('analysisCompleted', handleCompleted);
+      socket.off('analysisError', handleError);
     };
-  };
+  }, [socket]);
 
-  // Get connection status
-  const getConnectionStatus = () => ({
-    isConnected,
-    hasError: !!connectionError,
-    error: connectionError,
-    socketId: socket?.id
-  });
-
-  // Manually reconnect
-  const reconnect = () => {
+  const reconnect = useCallback(() => {
+    console.log('🔄 [SocketContext] Manual reconnection attempt...');
     if (socket) {
-      reconnectAttempts.current = 0;
-      setConnectionError(null);
       socket.connect();
     }
-  };
+  }, [socket]);
 
-  const contextValue = {
+  const value = {
     socket,
     isConnected,
     connectionError,
     subscribeToAnalysis,
-    getConnectionStatus,
-    reconnect
+    reconnect,
   };
 
+  console.log('🏗️ [SocketContext] Provider rendering with state:', {
+    socketConnected: !!socket,
+    isConnected,
+    connectionError: !!connectionError
+  });
+
   return (
-    <SocketContext.Provider value={contextValue}>
+    <SocketContext.Provider value={value}>
       {children}
     </SocketContext.Provider>
   );

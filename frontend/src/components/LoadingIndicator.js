@@ -1,170 +1,293 @@
 import React, { useState, useEffect } from 'react';
 import { useSocket } from '../contexts/SocketContext';
-import { Activity, TrendingUp, Newspaper, DollarSign, BarChart3 } from 'lucide-react';
+import { Activity, TrendingUp, Newspaper, DollarSign, BarChart3, Brain, Zap, Clock } from 'lucide-react';
 
 const LoadingIndicator = ({ symbol }) => {
   const [progress, setProgress] = useState(0);
-  const [currentMessage, setCurrentMessage] = useState('Initializing analysis...');
+  const [currentMessage, setCurrentMessage] = useState('Initializing AI analysis...');
+  const [startTime] = useState(new Date());
+  const [elapsedTime, setElapsedTime] = useState(0);
   const [stages, setStages] = useState([
-    { name: 'Stock Data', icon: TrendingUp, completed: false, progress: 0 },
-    { name: 'News Sentiment', icon: Newspaper, completed: false, progress: 0 },
-    { name: 'Economic Data', icon: DollarSign, completed: false, progress: 0 },
-    { name: 'Analysis', icon: BarChart3, completed: false, progress: 0 }
+    { 
+      name: 'Stock Data Collection', 
+      icon: TrendingUp, 
+      completed: false, 
+      progress: 0, 
+      description: 'Fetching real-time price data and technical indicators',
+      status: 'pending'
+    },
+    { 
+      name: 'News Sentiment Analysis', 
+      icon: Newspaper, 
+      completed: false, 
+      progress: 0, 
+      description: 'Processing latest news and social media sentiment',
+      status: 'pending'
+    },
+    { 
+      name: 'Economic Indicators', 
+      icon: DollarSign, 
+      completed: false, 
+      progress: 0, 
+      description: 'Analyzing economic environment and market regime',
+      status: 'pending'
+    },
+    { 
+      name: 'AI Analysis & Recommendations', 
+      icon: Brain, 
+      completed: false, 
+      progress: 0, 
+      description: 'Generating intelligent investment recommendations',
+      status: 'pending'
+    }
   ]);
 
-  const { subscribeToAnalysis } = useSocket();
+  const { socket } = useSocket();
+
+  // Update elapsed time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setElapsedTime(Math.floor((new Date() - startTime) / 1000));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [startTime]);
 
   useEffect(() => {
-    // Subscribe to progress updates for any active analysis
-    // This component doesn't have a specific requestId, so it listens to all progress
     const handleProgress = (data) => {
-      setProgress(data.progress || 0);
+      const newProgress = data.progress || 0;
+      setProgress(newProgress);
       setCurrentMessage(data.message || 'Processing...');
       
-      // Update stage progress based on message content
-      updateStageProgress(data.message, data.progress);
+      // Update stage progress with more detailed mapping
+      updateStageProgress(data.message, newProgress, data.stage);
     };
 
-    // Listen for progress events on the socket directly
-    const { socket } = useSocket();
     if (socket) {
       socket.on('progress', handleProgress);
-      
-      return () => {
-        socket.off('progress', handleProgress);
-      };
+      return () => socket.off('progress', handleProgress);
     }
-  }, []);
+  }, [socket]);
 
-  const updateStageProgress = (message, totalProgress) => {
+  const updateStageProgress = (message, totalProgress, stageName) => {
     setStages(prevStages => {
       const newStages = [...prevStages];
       
-      // Determine which stage is active based on message content
-      if (message?.includes('stock') || message?.includes('price') || message?.includes('technical')) {
-        newStages[0].progress = Math.min(100, totalProgress * 3); // Stock data is roughly first 33%
-        if (totalProgress >= 30) newStages[0].completed = true;
+      // Reset all stages to pending if starting over
+      if (totalProgress < 10) {
+        newStages.forEach(stage => {
+          stage.status = 'pending';
+          stage.progress = 0;
+          stage.completed = false;
+        });
       }
       
-      if (message?.includes('news') || message?.includes('sentiment')) {
-        newStages[1].progress = Math.max(0, Math.min(100, (totalProgress - 25) * 2)); // News is roughly 25-60%
-        if (totalProgress >= 60) newStages[1].completed = true;
+      // Stage 0: Stock Data (0-25%)
+      if (totalProgress >= 0 && totalProgress < 25) {
+        newStages[0].status = 'active';
+        newStages[0].progress = Math.min(100, (totalProgress / 25) * 100);
+      } else if (totalProgress >= 25) {
+        newStages[0].completed = true;
+        newStages[0].progress = 100;
+        newStages[0].status = 'completed';
       }
       
-      if (message?.includes('economic') || message?.includes('regime')) {
-        newStages[2].progress = Math.max(0, Math.min(100, (totalProgress - 55) * 3)); // Economic is roughly 55-80%
-        if (totalProgress >= 80) newStages[2].completed = true;
+      // Stage 1: News Sentiment (25-50%)
+      if (totalProgress >= 25 && totalProgress < 50) {
+        newStages[1].status = 'active';
+        newStages[1].progress = Math.min(100, ((totalProgress - 25) / 25) * 100);
+      } else if (totalProgress >= 50) {
+        newStages[1].completed = true;
+        newStages[1].progress = 100;
+        newStages[1].status = 'completed';
       }
       
-      if (message?.includes('analysis') || message?.includes('recommendation')) {
-        newStages[3].progress = Math.max(0, Math.min(100, (totalProgress - 80) * 5)); // Analysis is final 20%
-        if (totalProgress >= 95) newStages[3].completed = true;
+      // Stage 2: Economic Data (50-75%)
+      if (totalProgress >= 50 && totalProgress < 75) {
+        newStages[2].status = 'active';
+        newStages[2].progress = Math.min(100, ((totalProgress - 50) / 25) * 100);
+      } else if (totalProgress >= 75) {
+        newStages[2].completed = true;
+        newStages[2].progress = 100;
+        newStages[2].status = 'completed';
+      }
+      
+      // Stage 3: AI Analysis (75-100%)
+      if (totalProgress >= 75) {
+        newStages[3].status = 'active';
+        newStages[3].progress = Math.min(100, ((totalProgress - 75) / 25) * 100);
+        if (totalProgress >= 95) {
+          newStages[3].completed = true;
+          newStages[3].progress = 100;
+          newStages[3].status = 'completed';
+        }
       }
       
       return newStages;
     });
   };
 
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getStageStatusStyles = (stage) => {
+    switch (stage.status) {
+      case 'completed':
+        return 'border-green-300 bg-gradient-to-r from-green-50 to-green-100 shadow-green-100';
+      case 'active':
+        return 'border-blue-300 bg-gradient-to-r from-blue-50 to-indigo-100 shadow-blue-100 animate-pulse';
+      default:
+        return 'border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100';
+    }
+  };
+
+  const getIconStyles = (stage) => {
+    switch (stage.status) {
+      case 'completed':
+        return 'text-green-600';
+      case 'active':
+        return 'text-blue-600 animate-spin';
+      default:
+        return 'text-gray-400';
+    }
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="text-center mb-6">
-        <div className="flex items-center justify-center mb-3">
-          <Activity className="h-8 w-8 text-blue-600 mr-3 animate-pulse" />
-          <h3 className="text-xl font-semibold text-gray-800">
-            Analyzing {symbol}
-          </h3>
+    <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+      {/* Header with animated gradient */}
+      <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <div className="relative">
+              <Activity className="h-8 w-8 animate-pulse" />
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-ping"></div>
+            </div>
+            <div className="ml-4">
+              <h3 className="text-xl font-semibold">
+                Analyzing {symbol}
+              </h3>
+              <p className="text-blue-100 text-sm">AI-Powered Stock Analysis</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="flex items-center text-blue-100">
+              <Clock className="h-4 w-4 mr-1" />
+              <span className="text-sm">{formatTime(elapsedTime)}</span>
+            </div>
+          </div>
         </div>
-        <p className="text-gray-600 mb-4">{currentMessage}</p>
         
-        {/* Overall Progress Bar */}
-        <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
-          <div
-            className="bg-blue-600 h-3 rounded-full transition-all duration-500 ease-out"
-            style={{ width: `${progress}%` }}
-          ></div>
+        {/* Overall Progress */}
+        <div className="mt-4">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm text-blue-100">Overall Progress</span>
+            <span className="text-sm font-semibold">{Math.round(progress)}%</span>
+          </div>
+          <div className="w-full bg-blue-800/30 rounded-full h-2">
+            <div
+              className="bg-gradient-to-r from-white to-yellow-300 h-2 rounded-full transition-all duration-700 ease-out shadow-sm"
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
         </div>
-        <p className="text-sm text-gray-500">{Math.round(progress)}% Complete</p>
       </div>
 
-      {/* Stage Indicators */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {stages.map((stage, index) => {
-          const Icon = stage.icon;
-          return (
-            <div
-              key={stage.name}
-              className={`flex items-center p-4 rounded-lg border-2 transition-all duration-300 ${
-                stage.completed
-                  ? 'border-green-200 bg-green-50'
-                  : stage.progress > 0
-                  ? 'border-blue-200 bg-blue-50'
-                  : 'border-gray-200 bg-gray-50'
-              }`}
-            >
-              <div className="flex-shrink-0 mr-3">
-                <Icon
-                  className={`h-6 w-6 ${
-                    stage.completed
-                      ? 'text-green-600'
-                      : stage.progress > 0
-                      ? 'text-blue-600'
-                      : 'text-gray-400'
-                  }`}
-                />
-              </div>
-              <div className="flex-1">
-                <h4 className={`font-medium ${
-                  stage.completed
-                    ? 'text-green-800'
-                    : stage.progress > 0
-                    ? 'text-blue-800'
-                    : 'text-gray-700'
-                }`}>
-                  {stage.name}
-                </h4>
-                <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full transition-all duration-300 ${
-                      stage.completed
-                        ? 'bg-green-600'
-                        : stage.progress > 0
-                        ? 'bg-blue-600'
-                        : 'bg-gray-400'
-                    }`}
-                    style={{ width: `${stage.progress}%` }}
-                  ></div>
-                </div>
-              </div>
-              {stage.completed && (
-                <div className="flex-shrink-0 ml-2">
-                  <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
+      {/* Current Status */}
+      <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-blue-50 border-b border-gray-100">
+        <div className="flex items-center">
+          <Zap className="h-5 w-5 text-yellow-500 mr-2 animate-bounce" />
+          <span className="text-gray-700 font-medium">{currentMessage}</span>
+        </div>
+      </div>
+
+      {/* Stage Progress */}
+      <div className="p-6">
+        <div className="space-y-4">
+          {stages.map((stage, index) => {
+            const Icon = stage.icon;
+            return (
+              <div
+                key={stage.name}
+                className={`p-4 rounded-lg border-2 transition-all duration-500 shadow-sm ${getStageStatusStyles(stage)}`}
+              >
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 mr-4">
+                    {stage.completed ? (
+                      <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center shadow-md">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    ) : (
+                      <div className={`p-1.5 rounded-full ${stage.status === 'active' ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                        <Icon className={`h-5 w-5 ${getIconStyles(stage)}`} />
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <h4 className={`font-semibold ${
+                        stage.completed ? 'text-green-800' : 
+                        stage.status === 'active' ? 'text-blue-800' : 'text-gray-700'
+                      }`}>
+                        {stage.name}
+                      </h4>
+                      <span className={`text-sm font-medium ${
+                        stage.completed ? 'text-green-600' : 
+                        stage.status === 'active' ? 'text-blue-600' : 'text-gray-500'
+                      }`}>
+                        {stage.completed ? 'Complete' : stage.status === 'active' ? 'In Progress' : 'Pending'}
+                      </span>
+                    </div>
+                    
+                    <p className="text-sm text-gray-600 mb-3">{stage.description}</p>
+                    
+                    {/* Stage Progress Bar */}
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all duration-500 ${
+                          stage.completed ? 'bg-gradient-to-r from-green-500 to-green-600' :
+                          stage.status === 'active' ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gray-300'
+                        }`}
+                        style={{ width: `${stage.progress}%` }}
+                      ></div>
+                    </div>
                   </div>
                 </div>
-              )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* AI Processing Info */}
+        <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200">
+          <div className="flex items-start">
+            <Brain className="h-6 w-6 text-purple-600 mr-3 flex-shrink-0 animate-pulse" />
+            <div>
+              <h4 className="font-semibold text-purple-800 mb-2">AI Analysis in Progress</h4>
+              <ul className="text-sm text-purple-700 space-y-1">
+                <li>• Processing real-time market data with machine learning models</li>
+                <li>• Analyzing sentiment patterns from news and social media</li>
+                <li>• Evaluating economic indicators and market conditions</li>
+                <li>• Generating personalized investment recommendations</li>
+              </ul>
             </div>
-          );
-        })}
-      </div>
+          </div>
+        </div>
 
-      {/* Processing Details */}
-      <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <h4 className="font-medium text-blue-800 mb-2">What we're analyzing:</h4>
-        <ul className="text-sm text-blue-700 space-y-1">
-          <li>• Real-time stock price and technical indicators</li>
-          <li>• Latest news sentiment and social media signals</li>
-          <li>• Economic conditions and market regime</li>
-          <li>• Multi-horizon investment recommendations</li>
-        </ul>
-      </div>
-
-      {/* Estimated Time */}
-      <div className="mt-4 text-center">
-        <p className="text-sm text-gray-500">
-          Estimated completion: {Math.max(5, 30 - Math.round(progress * 0.3))} seconds
-        </p>
+        {/* Estimated Completion */}
+        <div className="mt-4 text-center">
+          <div className="inline-flex items-center px-4 py-2 bg-gray-100 rounded-full">
+            <Clock className="h-4 w-4 text-gray-500 mr-2" />
+            <span className="text-sm text-gray-700">
+              Estimated completion: {Math.max(5, 45 - Math.round(progress * 0.4))} seconds
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );

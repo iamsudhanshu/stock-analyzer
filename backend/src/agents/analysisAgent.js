@@ -51,14 +51,19 @@ class AnalysisAgent extends BaseAgent {
 
   async handleRequest(payload, requestId) {
     try {
+      console.log('📥 [AnalysisAgent] Received request:', { requestId, payload });
+      
       // Check if this is initial data or consolidated data from other agents
       if (payload.agentType) {
+        console.log('📊 [AnalysisAgent] Handling agent data from:', payload.agentType);
         return await this.handleAgentData(payload, requestId);
       } else {
+        console.log('🚀 [AnalysisAgent] Initiating new analysis');
         // This is the initial request to start analysis
         return await this.initiateAnalysis(payload, requestId);
       }
     } catch (error) {
+      console.error(`💥 [AnalysisAgent] Error for request ${requestId}:`, error);
       logger.error(`AnalysisAgent error for request ${requestId}:`, error);
       throw error;
     }
@@ -67,39 +72,71 @@ class AnalysisAgent extends BaseAgent {
   async initiateAnalysis(payload, requestId) {
     const { symbol } = payload;
     
+    console.log('🎯 [AnalysisAgent] Initiating analysis:', { symbol, requestId });
+    
     if (!symbol) {
+      console.log('❌ [AnalysisAgent] Missing symbol in payload');
       throw new Error('Symbol is required');
     }
 
     // Initialize analysis tracking
-    this.pendingAnalyses.set(requestId, {
+    const analysisData = {
       symbol: symbol.toUpperCase(),
       startTime: Date.now(),
       receivedData: {},
       expectedAgents: ['StockDataAgent', 'NewsSentimentAgent', 'EconomicIndicatorAgent'],
       completed: false
+    };
+    
+    this.pendingAnalyses.set(requestId, analysisData);
+    
+    console.log('📦 [AnalysisAgent] Analysis tracking initialized:', {
+      requestId,
+      symbol: analysisData.symbol,
+      expectedAgents: analysisData.expectedAgents,
+      pendingCount: this.pendingAnalyses.size
     });
 
     await this.sendProgress(requestId, 0, 'Starting comprehensive analysis...');
 
     // Start timeout timer
     setTimeout(() => {
+      console.log('⏰ [AnalysisAgent] Timeout triggered for request:', requestId);
       this.checkAndCompleteAnalysis(requestId, true);
     }, this.dataCollectionTimeout);
 
+    console.log('✅ [AnalysisAgent] Analysis initiated successfully');
     return { status: 'analysis_initiated', requestId };
   }
 
   async handleAgentData(payload, requestId) {
+    console.log('📊 [AnalysisAgent] Handling agent data:', {
+      requestId,
+      agentType: payload.agentType,
+      hasPayload: !!payload.payload
+    });
+    
     const analysis = this.pendingAnalyses.get(requestId);
     
     if (!analysis || analysis.completed) {
+      console.log('⚠️ [AnalysisAgent] Analysis not found or already completed:', {
+        requestId,
+        found: !!analysis,
+        completed: analysis?.completed
+      });
       logger.debug(`Analysis ${requestId} not found or already completed`);
       return null;
     }
 
     // Store the received data
     analysis.receivedData[payload.agentType] = payload.payload;
+    
+    console.log('📦 [AnalysisAgent] Data stored from agent:', {
+      agentType: payload.agentType,
+      requestId,
+      receivedAgents: Object.keys(analysis.receivedData),
+      expectedAgents: analysis.expectedAgents
+    });
     
     logger.info(`AnalysisAgent received data from ${payload.agentType} for request ${requestId}`);
 
@@ -108,26 +145,51 @@ class AnalysisAgent extends BaseAgent {
     const totalExpected = analysis.expectedAgents.length;
     const progress = Math.min(90, (receivedCount / totalExpected) * 90);
     
+    console.log('📈 [AnalysisAgent] Progress update:', {
+      requestId,
+      receivedCount,
+      totalExpected,
+      progress: Math.round(progress)
+    });
+    
     await this.sendProgress(requestId, progress, `Received data from ${payload.agentType}...`);
 
     // Check if we have all the data we need
     if (receivedCount >= totalExpected) {
+      console.log('🎉 [AnalysisAgent] All data received, completing analysis');
       return await this.checkAndCompleteAnalysis(requestId, false);
     }
 
+    console.log('⏳ [AnalysisAgent] Waiting for more data...');
     return null;
   }
 
   async checkAndCompleteAnalysis(requestId, isTimeout = false) {
+    console.log('🔍 [AnalysisAgent] Checking completion status:', {
+      requestId,
+      isTimeout,
+      hasPendingAnalysis: this.pendingAnalyses.has(requestId)
+    });
+    
     const analysis = this.pendingAnalyses.get(requestId);
     
     if (!analysis || analysis.completed) {
+      console.log('⚠️ [AnalysisAgent] Analysis not found or already completed');
       return null;
     }
 
     const receivedCount = Object.keys(analysis.receivedData).length;
     
+    console.log('📊 [AnalysisAgent] Analysis completion check:', {
+      requestId,
+      receivedCount,
+      expectedCount: analysis.expectedAgents.length,
+      receivedFrom: Object.keys(analysis.receivedData),
+      isTimeout
+    });
+    
     if (receivedCount === 0) {
+      console.log('❌ [AnalysisAgent] No data received within timeout');
       logger.warn(`No data received for analysis ${requestId} within timeout`);
       analysis.completed = true;
       this.pendingAnalyses.delete(requestId);
@@ -135,27 +197,60 @@ class AnalysisAgent extends BaseAgent {
     }
 
     if (isTimeout) {
+      console.log('⏰ [AnalysisAgent] Completing analysis due to timeout');
       logger.warn(`Analysis ${requestId} timing out with ${receivedCount} of ${analysis.expectedAgents.length} agents`);
     }
 
     analysis.completed = true;
     
     try {
+      console.log('🔄 [AnalysisAgent] Generating investment analysis...');
       await this.sendProgress(requestId, 95, 'Generating investment recommendations...');
 
       // Generate comprehensive analysis
       const result = await this.generateInvestmentAnalysis(analysis);
       
+      console.log('✅ [AnalysisAgent] Analysis generation completed:', {
+        requestId,
+        resultKeys: Object.keys(result),
+        hasSymbol: !!result.symbol,
+        hasAnalysis: !!result.analysis,
+        hasRawData: !!result.rawData
+      });
+      
       await this.sendProgress(requestId, 100, 'Analysis complete');
 
       // Clean up
       this.pendingAnalyses.delete(requestId);
+      
+      console.log('📤 [AnalysisAgent] Sending final result to UI queue');
+      
+      // Send final result to UI queue
+      await this.publishMessage(config.queues.ui, {
+        requestId,
+        type: 'analysis_result',
+        status: 'success',
+        payload: result,
+        timestamp: new Date().toISOString()
+      });
 
+      console.log('🎉 [AnalysisAgent] Analysis completed and sent successfully');
       return result;
 
     } catch (error) {
+      console.error('💥 [AnalysisAgent] Error completing analysis:', error);
       logger.error(`Error completing analysis for ${requestId}:`, error);
       this.pendingAnalyses.delete(requestId);
+      
+      // Send error to UI queue
+      await this.publishMessage(config.queues.ui, {
+        requestId,
+        type: 'analysis_error',
+        status: 'error',
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+      
       throw error;
     }
   }
