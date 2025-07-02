@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Analysis Application - Project Requirements</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --accent-color: #3b82f6;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --background: #ffffff;
+            --surface: #f8fafc;
+            --border: #e5e7eb;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background: var(--background);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.2);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Navigation */
+        .nav {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-item {
+            padding: 0.5rem 1rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--text-primary);
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .nav-item:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+
+        /* Sections */
+        .section {
+            margin-bottom: 3rem;
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border);
+        }
+
+        .section h2 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin: 1.5rem 0 1rem 0;
+            color: var(--secondary-color);
+        }
+
+        .section p {
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        /* Lists */
+        ul, ol {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .sub-list {
+            margin-top: 0.5rem;
+            margin-left: 1rem;
+        }
+
+        /* Agent Cards */
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .agent-card {
+            background: var(--surface);
+            padding: 1.5rem;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .agent-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .agent-card h4 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .agent-card ul {
+            margin-left: 1rem;
+        }
+
+        /* Tables */
+        .table-container {
+            overflow-x: auto;
+            margin: 2rem 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--primary-color);
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+        }
+
+        tr:hover {
+            background: var(--surface);
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: var(--accent-color);
+            color: white;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin: 0.25rem;
+        }
+
+        .badge.success { background: var(--success); }
+        .badge.warning { background: var(--warning); }
+        .badge.error { background: var(--error); }
+
+        /* Feature Grid */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .feature-item {
+            background: var(--surface);
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .feature-item:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* Code blocks */
+        code {
+            background: var(--surface);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9rem;
+            color: var(--primary-color);
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .nav {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .section {
+                padding: 1.5rem;
+            }
+
+            .agent-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Icons */
+        .icon {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            vertical-align: middle;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section {
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        /* Print styles */
+        @media print {
+            .nav { display: none; }
+            .section { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📈 AI-Powered Stock Analysis Application</h1>
+            <p>Multi-Agent Architecture for Intelligent Investment Recommendations</p>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="nav">
+            <a href="#overview" class="nav-item">Overview</a>
+            <a href="#objectives" class="nav-item">Objectives</a>
+            <a href="#architecture" class="nav-item">Architecture</a>
+            <a href="#apis" class="nav-item">Data Sources</a>
+            <a href="#interface" class="nav-item">Interface</a>
+        </nav>
+
+        <!-- Overview Section -->
+        <section id="overview" class="section">
+            <h2>🎯 Overview</h2>
+            <p>This document describes a <strong>multi-AI-agent architecture</strong> for an interactive web application that analyzes a given stock symbol and produces short-, mid-, and long-term investment recommendations.</p>
+            <p>The system ingests real-time stock data, financial news, sentiment signals, and macroeconomic parameters from external APIs, processes them via specialized AI agents, and presents a consolidated report through a modern web interface.</p>
+        </section>
+
+        <!-- Objectives Section -->
+        <section id="objectives" class="section">
+            <h2>🎯 Objectives</h2>
+            <div class="feature-grid">
+                <div class="feature-item">
+                    <h4>Data Integration</h4>
+                    <p>Ingest and normalize data from diverse APIs: stock prices, corporate filings, news articles, social sentiment, and economic indicators.</p>
+                </div>
+                <div class="feature-item">
+                    <h4>AI Agents</h4>
+                    <p>Leverage dedicated AI agents to process each data domain, enabling modularity and parallelism.</p>
+                </div>
+                <div class="feature-item">
+                    <h4>Analysis Engine</h4>
+                    <p>Aggregate insights in a central Analysis Agent that applies quantitative models and rule-based logic.</p>
+                </div>
+                <div class="feature-item">
+                    <h4>Investment Recommendations</h4>
+                    <p>Provide actionable investment recommendations for three time horizons: short, mid, and long-term.</p>
+                </div>
+            </div>
+            
+            <h3>Investment Horizons</h3>
+            <ul>
+                <li><span class="badge success">Short-term</span> Days to weeks</li>
+                <li><span class="badge warning">Mid-term</span> Weeks to months</li>
+                <li><span class="badge error">Long-term</span> Months to years</li>
+            </ul>
+        </section>
+
+        <!-- System Architecture Section -->
+        <section id="architecture" class="section">
+            <h2>🏛️ System Architecture</h2>
+            
+            <h3>Agent Components</h3>
+            <div class="agent-grid">
+                <div class="agent-card">
+                    <h4>📊 StockDataAgent</h4>
+                    <ul>
+                        <li>Fetches real-time and historical price/volume data</li>
+                        <li>Normalizes time series for technical indicator calculation</li>
+                        <li>Calculates SMA, RSI, MACD, and other indicators</li>
+                    </ul>
+                </div>
+                
+                <div class="agent-card">
+                    <h4>📰 NewsSentimentAgent</h4>
+                    <ul>
+                        <li>Calls news APIs and scrapes headlines</li>
+                        <li>Applies NLP sentiment analysis</li>
+                        <li>Generates bullish/bearish scores</li>
+                    </ul>
+                </div>
+                
+                <div class="agent-card">
+                    <h4>📈 EconomicIndicatorAgent</h4>
+                    <ul>
+                        <li>Retrieves macro data (GDP, CPI, interest rates)</li>
+                        <li>Flags regime shifts (recession vs. expansion)</li>
+                        <li>Provides economic context for analysis</li>
+                    </ul>
+                </div>
+                
+                <div class="agent-card">
+                    <h4>🧠 AnalysisAgent</h4>
+                    <ul>
+                        <li>Consolidates outputs from all data agents</li>
+                        <li>Runs ensemble models (ML + rule engine)</li>
+                        <li>Generates textual explanations and risk assessments</li>
+                    </ul>
+                </div>
+                
+                <div class="agent-card">
+                    <h4>🖥️ UIAgent</h4>
+                    <ul>
+                        <li>Serves REST endpoints and manages WebSocket channels</li>
+                        <li>Formats JSON response into HTML/JSON/CSS</li>
+                        <li>Handles real-time communication with frontend</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>Communication Protocol</h3>
+            <p>Agents communicate via a lightweight message bus using <strong>Redis Pub/Sub</strong>. Each agent listens on a dedicated queue/topic and publishes JSON events with:</p>
+            <ul>
+                <li><code>requestId</code> - Unique identifier for tracking</li>
+                <li><code>agentType</code> - Agent classification</li>
+                <li><code>payload</code> - Data or intermediate insights</li>
+            </ul>
+            <p>The AnalysisAgent subscribes to all events for a given <code>requestId</code> and waits for completion flags before computing final recommendations.</p>
+        </section>
+
+        <!-- Data Sources Section -->
+        <section id="apis" class="section">
+            <h2>🔌 Data Sources and API Integrations</h2>
+            <p>Below are the recommended APIs organized by domain, chosen for their generous free-tier offerings:</p>
+
+            <h3>📊 Stock Data</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>API</th>
+                            <th>Free-Tier Limits</th>
+                            <th>Key Features</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Alpha Vantage</strong></td>
+                            <td>5 requests/min, 500/day</td>
+                            <td>Real-time & historical stock, FX, crypto; 50+ indicators</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Finnhub</strong></td>
+                            <td>60 requests/min, 30,000/month</td>
+                            <td>Real-time quotes, fundamentals, earnings, sentiment</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Twelve Data</strong></td>
+                            <td>800 requests/day</td>
+                            <td>Multi-asset (stocks, forex, crypto), technicals, news feed</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>📰 News & Sentiment</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>API</th>
+                            <th>Free-Tier Limits</th>
+                            <th>Key Features</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>NewsAPI.org</strong></td>
+                            <td>100 requests/day, 20 articles/call</td>
+                            <td>Global headlines, source filtering, keyword search</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Webz.io News API Lite</strong></td>
+                            <td>1,000 calls/month, 10 articles/call</td>
+                            <td>170+ languages, Boolean queries, sentiment analysis</td>
+                        </tr>
+                        <tr>
+                            <td><strong>NewsData.io</strong></td>
+                            <td>2,000 requests/day</td>
+                            <td>300+ sources, JSON/CSV, category & keyword filters</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>📈 Economic Indicators</h3>
+            <ul>
+                <li><strong>FRED API</strong> - Free key-based access to 800,000+ U.S. macroeconomic series (GDP, CPI, rates)</li>
+                <li><strong>World Bank API</strong> - No-key global data: GDP, unemployment, trade, demographics</li>
+            </ul>
+
+            <h3>💬 Social Media Signals</h3>
+            <ul>
+                <li><strong>StockTwits API</strong> - Free streams of ticker-tagged messages; basic user analytics</li>
+                <li><strong>Twitter API v2 (Essential)</strong> - 500k tweets/month, full-archive search via Academic Research access</li>
+                <li><strong>VADER (Open-Source Library)</strong> - Rule-based sentiment scoring for social-media text</li>
+                <li><strong>Twinword Sentiment Analysis</strong> - 500 requests/month; fine-grained polarity & intensity scores</li>
+            </ul>
+        </section>
+
+        <!-- Interface Section -->
+        <section id="interface" class="section">
+            <h2>🖥️ Interactive Web Interface</h2>
+            
+            <h3>Front-End Technologies</h3>
+            <div class="feature-grid">
+                <div class="feature-item">
+                    <h4>React.js</h4>
+                    <p>Modern component-based UI framework</p>
+                </div>
+                <div class="feature-item">
+                    <h4>WebSocket</h4>
+                    <p>Real-time progress updates</p>
+                </div>
+                <div class="feature-item">
+                    <h4>Tailwind CSS</h4>
+                    <p>Utility-first styling framework</p>
+                </div>
+                <div class="feature-item">
+                    <h4>Recharts</h4>
+                    <p>Interactive data visualization</p>
+                </div>
+            </div>
+
+            <h3>User Experience Flow</h3>
+            <ol>
+                <li><strong>Stock Symbol Input</strong> - User enters ticker symbol (e.g., AAPL)</li>
+                <li><strong>Real-time Processing</strong> - Live updates as agents process data</li>
+                <li><strong>Comprehensive Analysis</strong> - Multi-dimensional stock evaluation</li>
+                <li><strong>Investment Recommendations</strong> - Actionable insights for different time horizons</li>
+                <li><strong>Risk Assessment</strong> - Detailed risk analysis and mitigation strategies</li>
+            </ol>
+
+            <h3>Key Features</h3>
+            <ul>
+                <li>📱 <strong>Responsive Design</strong> - Works on desktop, tablet, and mobile</li>
+                <li>⚡ <strong>Real-time Updates</strong> - Live progress tracking via WebSocket</li>
+                <li>📊 <strong>Interactive Charts</strong> - Technical indicators and price visualization</li>
+                <li>🎯 <strong>Investment Recommendations</strong> - Clear buy/sell/hold recommendations</li>
+                <li>🛡️ <strong>Risk Analysis</strong> - Comprehensive risk assessment</li>
+                <li>📈 <strong>Historical Context</strong> - Performance comparison and trends</li>
+            </ul>
+        </section>
+
+        <!-- Footer -->
+        <footer style="text-align: center; margin-top: 3rem; padding: 2rem; color: var(--text-secondary); border-top: 1px solid var(--border);">
+            <p><strong>Stock Analysis Application</strong> - Multi-Agent AI System</p>
+            <p>Built with Node.js, React, Redis, and modern web technologies</p>
+        </footer>
+    </div>
+
+    <script>
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href').substring(1);
+                const targetElement = document.getElementById(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Add active state to navigation
+        window.addEventListener('scroll', function() {
+            const sections = document.querySelectorAll('.section');
+            const navItems = document.querySelectorAll('.nav-item');
+            
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (pageYOffset >= sectionTop - 60) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navItems.forEach(item => {
+                item.classList.remove('active');
+                if (item.getAttribute('href').substring(1) === current) {
+                    item.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
