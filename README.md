@@ -8,7 +8,6 @@ This application has been **revolutionized with Ollama integration**, transformi
 
 - 🧠 **Chart Pattern AI**: Advanced pattern recognition beyond traditional indicators
 - 📰 **Context-Aware Sentiment**: Market-specific language understanding and theme extraction  
-- 📊 **Economic Intelligence**: Forward-looking economic scenario analysis
 - 💡 **Natural Language Reasoning**: Investment recommendations with detailed explanations
 - 🎯 **Risk Assessment AI**: Sophisticated risk analysis with mitigation strategies
 - 🔐 **Complete Privacy**: All AI processing runs locally on your machine
@@ -17,7 +16,7 @@ This application has been **revolutionized with Ollama integration**, transformi
 
 This application implements an **AI-enhanced multi-agent architecture** where specialized agents work collaboratively with **local LLMs** to analyze stocks from different perspectives:
 
-- **AI-Enhanced Data Agents**: Fetch and intelligently analyze market data, news, and economic indicators
+- **AI-Enhanced Data Agents**: Fetch and intelligently analyze market data and news sentiment
 - **AI-Powered Analysis Agent**: Consolidates insights and generates AI-reasoned investment recommendations  
 - **UI Agent**: Manages web interface and real-time communication
 - **Ollama AI Layer**: Local LLM processing for enhanced intelligence
@@ -25,12 +24,11 @@ This application implements an **AI-enhanced multi-agent architecture** where sp
 
 ## 🎯 Key Features
 
-✅ **Multi-Source Data Integration** - Real-time stock data, financial news, economic indicators  
+✅ **Multi-Source Data Integration** - Real-time stock data and financial news  
 ✅ **Advanced Technical Analysis** - 20+ technical indicators (SMA, RSI, MACD, Bollinger Bands)  
 ✅ **Sentiment Analysis** - News and social media sentiment using VADER and NLP  
-✅ **Economic Context** - Macroeconomic regime analysis (expansion/contraction/neutral)  
 ✅ **AI-Powered Recommendations** - Investment advice for short/mid/long-term horizons  
-✅ **Real-Time Updates** - Live progress tracking via WebSocket  
+✅ **Real-Time Updates** - Live progress tracking via WebSocket with optimized 3-stage progress bar  
 ✅ **Professional UI** - Modern, responsive React interface  
 ✅ **Robust Architecture** - Error handling, rate limiting, caching, fallback mechanisms  
 🧠 **AI-Powered Intelligence** - Local LLM integration with Ollama for enhanced analysis  
@@ -45,6 +43,7 @@ graph TB
     subgraph "Frontend Layer"
         UI[React Frontend]
         WS[WebSocket Client]
+        Progress[3-Stage Progress Bar<br/>Stock Data → News → AI Analysis]
     end
     
     subgraph "Backend Layer"
@@ -60,34 +59,30 @@ graph TB
     end
     
     subgraph "AI-Enhanced Analysis Layer"
-        AnalysisAgent[Analysis Agent<br/>🤖 AI-Powered Investment Logic]
+        AnalysisAgent[Analysis Agent<br/>🤖 AI-Powered Investment Logic<br/>66-100% Progress Range]
         AIAnalysis[Market Context AI<br/>Investment Reasoning<br/>Risk Assessment]
     end
     
     subgraph "AI-Enhanced Data Agents"
-        StockAgent[Stock Data Agent<br/>📈 Technical Analysis + AI Patterns]
+        StockAgent[Stock Data Agent<br/>📈 Technical Analysis + AI Patterns<br/>0-33% Progress Range]
         StockAI[Chart Pattern AI<br/>Support/Resistance<br/>Signal Analysis]
         
-        NewsAgent[News Sentiment Agent<br/>📰 NLP + AI Context Analysis]
+        NewsAgent[News Sentiment Agent<br/>📰 NLP + AI Context Analysis<br/>33-66% Progress Range]
         NewsAI[Sentiment AI<br/>Market Context<br/>Theme Extraction]
-        
-        EconAgent[Economic Indicator Agent<br/>📊 Macro Analysis + AI Insights]
-        EconAI[Economic AI<br/>Regime Analysis<br/>Forward Outlook]
     end
     
     subgraph "External APIs"
         StockAPIs[Stock APIs<br/>Alpha Vantage<br/>Finnhub<br/>Twelve Data]
         NewsAPIs[News APIs<br/>NewsAPI<br/>NewsData<br/>Webz.io]
-        EconAPIs[Economic APIs<br/>FRED<br/>World Bank]
         SocialAPIs[Social APIs<br/>StockTwits<br/>Twitter]
     end
     
     UI --> UIAgent
     WS -.-> UIAgent
+    Progress -.-> UI
     UIAgent --> Redis
     Redis --> StockAgent
     Redis --> NewsAgent
-    Redis --> EconAgent
     Redis --> AnalysisAgent
     
     StockAgent --> StockAPIs
@@ -98,10 +93,6 @@ graph TB
     NewsAgent --> SocialAPIs
     NewsAgent --> NewsAI
     NewsAI --> Ollama
-    
-    EconAgent --> EconAPIs
-    EconAgent --> EconAI
-    EconAI --> Ollama
     
     AnalysisAgent --> AIAnalysis
     AIAnalysis --> Ollama
@@ -115,10 +106,10 @@ graph TB
     style Ollama fill:#e1f5fe,stroke:#01579b,stroke-width:2px
     style StockAI fill:#f3e5f5,stroke:#4a148c
     style NewsAI fill:#f3e5f5,stroke:#4a148c
-    style EconAI fill:#f3e5f5,stroke:#4a148c
     style AIAnalysis fill:#f3e5f5,stroke:#4a148c
     style LLaMA fill:#e8f5e8,stroke:#1b5e20
     style Mistral fill:#e8f5e8,stroke:#1b5e20
+    style Progress fill:#fff3e0,stroke:#e65100
 ```
 
 ## 🔄 AI-Enhanced Application Flow
@@ -131,7 +122,6 @@ sequenceDiagram
     participant Redis
     participant StockAgent
     participant NewsAgent
-    participant EconAgent
     participant Ollama
     participant AnalysisAgent
     
@@ -140,37 +130,39 @@ sequenceDiagram
     UIAgent->>Redis: Publish analysis request
     
     Note over Redis: AI Check: Ollama Available?
+    Note over Frontend: Progress: 0% - Starting analysis
     
     par Parallel Data Fetching & AI Enhancement
-        Redis->>StockAgent: Stock data request
-        Redis->>NewsAgent: News sentiment request  
-        Redis->>EconAgent: Economic data request
+        Redis->>StockAgent: Stock data request (0-33% progress)
+        Redis->>NewsAgent: News sentiment request (33-66% progress)
     end
     
     par Traditional + AI Processing
         StockAgent->>StockAgent: Fetch price data<br/>Calculate indicators
+        Note over Frontend: Progress: 10% - Fetching historical data
         StockAgent->>Ollama: 🧠 AI chart pattern analysis<br/>Support/resistance detection
         Ollama-->>StockAgent: Enhanced technical insights
+        Note over Frontend: Progress: 33% - Stock data complete
         
         NewsAgent->>NewsAgent: Fetch news<br/>Basic sentiment (VADER)
+        Note over Frontend: Progress: 50% - Analyzing sentiment
         NewsAgent->>Ollama: 🧠 AI context analysis<br/>Theme extraction
         Ollama-->>NewsAgent: Market context insights
-        
-        EconAgent->>EconAgent: Fetch macro data<br/>Regime classification
-        EconAgent->>Ollama: 🧠 AI economic analysis<br/>Forward outlook
-        Ollama-->>EconAgent: Enhanced regime insights
+        Note over Frontend: Progress: 66% - News analysis complete
     end
     
     par Publish AI-Enhanced Results
         StockAgent->>Redis: Technical analysis + AI patterns
         NewsAgent->>Redis: Sentiment + AI context
-        EconAgent->>Redis: Economic + AI insights
     end
     
     Redis->>AnalysisAgent: Consolidated AI-enhanced data
-    AnalysisAgent->>AnalysisAgent: Calculate composite scores
+    Note over Frontend: Progress: 70% - Starting comprehensive analysis
+    AnalysisAgent->>AnalysisAgent: Calculate composite scores<br/>(60% Technical, 40% Sentiment)
+    Note over Frontend: Progress: 95% - Generating recommendations
     AnalysisAgent->>Ollama: 🧠 AI investment recommendations<br/>Risk assessment<br/>Market context
     Ollama-->>AnalysisAgent: Natural language reasoning
+    Note over Frontend: Progress: 100% - Analysis complete
     AnalysisAgent->>Redis: Final AI-enhanced analysis
     Redis->>UIAgent: Analysis complete
     UIAgent->>Frontend: Real-time updates via WebSocket
@@ -188,9 +180,8 @@ flowchart LR
     end
     
     subgraph "AI-Enhanced Data Collection"
-        B --> C[Stock Data Agent]
-        B --> D[News Sentiment Agent]
-        B --> E[Economic Indicator Agent]
+        B --> C[Stock Data Agent<br/>0-33% Progress]
+        B --> D[News Sentiment Agent<br/>33-66% Progress]
         
         C --> C1[Price/Volume Data]
         C --> C2[Technical Indicators]
@@ -200,31 +191,24 @@ flowchart LR
         D --> D2[Social Media]
         D --> D3[Basic Sentiment]
         D --> D4[🧠 AI Context Analysis<br/>Theme Extraction]
-        
-        E --> E1[GDP, CPI, Rates]
-        E --> E2[Economic Regime]
-        E --> E3[🧠 AI Economic Insights<br/>Forward Outlook]
     end
     
     subgraph "🧠 Local AI Processing"
         AI[Ollama LLM Service]
         AI1[Pattern Recognition]
         AI2[Sentiment Context]
-        AI3[Economic Analysis]
         AI4[Investment Reasoning]
         
         C3 --> AI1
         D4 --> AI2
-        E3 --> AI3
-        AI1 & AI2 & AI3 --> AI4
+        AI1 & AI2 --> AI4
     end
     
-    subgraph "Hybrid Analysis Engine"
-        C1 & C2 & C3 --> F[Technical Score<br/>📈 40% Weight<br/>+ AI Patterns]
-        D1 & D2 & D3 & D4 --> G[Sentiment Score<br/>📰 30% Weight<br/>+ AI Context]
-        E1 & E2 & E3 --> H[Economic Score<br/>📊 30% Weight<br/>+ AI Insights]
+    subgraph "Rebalanced Analysis Engine"
+        C1 & C2 & C3 --> F[Technical Score<br/>📈 60% Weight<br/>+ AI Patterns]
+        D1 & D2 & D3 & D4 --> G[Sentiment Score<br/>📰 40% Weight<br/>+ AI Context]
         
-        F & G & H --> I[AI-Enhanced<br/>Composite Analysis]
+        F & G --> I[AI-Enhanced<br/>Composite Analysis<br/>66-100% Progress]
     end
     
     subgraph "AI-Powered Output Generation"
@@ -243,16 +227,42 @@ flowchart LR
         IL3[Natural Language Explanations]
     end
     
-    AI --> C3 & D4 & E3 & I1 & M
+    AI --> C3 & D4 & I1 & M
     
     style AI fill:#e1f5fe,stroke:#01579b,stroke-width:2px
     style C3 fill:#f3e5f5,stroke:#4a148c
     style D4 fill:#f3e5f5,stroke:#4a148c
-    style E3 fill:#f3e5f5,stroke:#4a148c
     style I1 fill:#f3e5f5,stroke:#4a148c
     style M fill:#f3e5f5,stroke:#4a148c
     style N fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    style F fill:#fff3e0,stroke:#e65100
+    style G fill:#fff3e0,stroke:#e65100
 ```
+
+## 🎯 Progress Bar System
+
+The application features an optimized **3-stage progress tracking system** with real-time WebSocket updates:
+
+```mermaid
+gantt
+    title Stock Analysis Progress Stages
+    dateFormat X
+    axisFormat %
+    
+    section Stage 1: Stock Data
+    Technical Analysis     :done, stage1, 0, 33
+    
+    section Stage 2: News Analysis  
+    Sentiment Processing   :done, stage2, 33, 66
+    
+    section Stage 3: AI Analysis
+    Investment Recommendations :done, stage3, 66, 100
+```
+
+### Progress Mapping
+- **0-33%**: Stock Data Agent (Technical analysis, price data, indicators)
+- **33-66%**: News Sentiment Agent (News analysis, social sentiment)  
+- **66-100%**: Analysis Agent (AI-powered investment recommendations)
 
 ## 🛠️ Technology Stack
 
@@ -277,7 +287,6 @@ flowchart LR
 ### External APIs
 - **Stock Data**: Alpha Vantage, Finnhub, Twelve Data
 - **News**: NewsAPI, NewsData.io, Webz.io
-- **Economic**: FRED API, World Bank API
 - **Social**: StockTwits, Twitter API v2
 
 ## 📁 Project Structure
@@ -286,11 +295,11 @@ flowchart LR
 stock-analysis-app/
 ├── 📂 backend/                     # Node.js backend service
 │   ├── 📂 src/
-│   │   ├── 📂 agents/             # Multi-agent system
+│   │   ├── 📂 agents/             # Multi-agent system (3 agents)
 │   │   │   ├── BaseAgent.js        # Abstract base class for all agents
-│   │   │   ├── stockDataAgent.js   # Stock data & technical analysis
-│   │   │   ├── newsSentimentAgent.js # News & sentiment processing
-│   │   │   ├── analysisAgent.js    # Investment recommendations engine
+│   │   │   ├── stockDataAgent.js   # Stock data & technical analysis (0-33% progress)
+│   │   │   ├── newsSentimentAgent.js # News & sentiment processing (33-66% progress)
+│   │   │   ├── analysisAgent.js    # Investment recommendations engine (66-100% progress)
 │   │   │   └── uiAgent.js         # REST API & WebSocket management
 │   │   ├── 📂 config/             # Configuration management
 │   │   │   └── index.js           # Environment-based config loader
@@ -306,7 +315,8 @@ stock-analysis-app/
 │   ├── 📂 src/
 │   │   ├── 📂 components/         # React components
 │   │   │   ├── StockSearchForm.js  # Stock symbol input & validation
-│   │   │   └── LoadingIndicator.js # Real-time progress tracking
+│   │   │   ├── LoadingIndicator.js # 3-stage progress tracking
+│   │   │   └── AnalysisResults.js  # Results display (technical + sentiment)
 │   │   ├── 📂 contexts/           # React context providers
 │   │   │   └── SocketContext.js   # WebSocket connection management
 │   │   ├── App.js                 # Main application component
@@ -314,25 +324,25 @@ stock-analysis-app/
 │   ├── package.json               # Frontend dependencies & scripts
 │   └── 📂 public/                 # Static assets
 ├── 📄 README.md                   # Project documentation
-├── 📄 context.html                # Project requirements (formatted)
-├── 📄 intent.html                 # Original requirements document
+├── 📄 CHANGELOG.md                # Version history and updates
 ├── package.json                   # Root project configuration
-└── 📂 docs/                       # Additional documentation (optional)
+└── 📂 scripts/                    # Utility scripts
+    └── start-with-ollama.sh       # Automated startup script
 ```
 
 ### 🗂️ Directory Breakdown
 
 #### **Backend (`/backend/`)**
-The multi-agent backend system built with Node.js and Express.
+The streamlined 3-agent backend system built with Node.js and Express.
 
 **🤖 Agents (`/backend/src/agents/`)**
 - **`BaseAgent.js`** - Abstract base class providing common functionality:
-  - Redis pub/sub messaging
+  - Redis pub/sub messaging with fixed JSON serialization
   - Logging and error handling
   - Rate limiting and caching
   - Configuration management
 
-- **`stockDataAgent.js`** - AI-Enhanced Stock Data Agent:
+- **`stockDataAgent.js`** - AI-Enhanced Stock Data Agent (0-33% Progress):
   - Fetches real-time and historical stock data
   - Calculates technical indicators (SMA, EMA, RSI, MACD, Bollinger Bands, Stochastic)
   - 🧠 **AI Chart Pattern Recognition**: Identifies triangles, flags, head & shoulders patterns
@@ -340,8 +350,9 @@ The multi-agent backend system built with Node.js and Express.
   - 🧠 **AI Volume Pattern Analysis**: Price-volume relationship insights
   - Integrates with Alpha Vantage, Finnhub, Twelve Data APIs
   - Implements fallback mechanisms and mock data
+  - **Progress Mapping**: 3% → 10% → 20% → 26% → 30% → 33% (complete)
 
-- **`newsSentimentAgent.js`** - AI-Enhanced News Sentiment Agent:
+- **`newsSentimentAgent.js`** - AI-Enhanced News Sentiment Agent (33-66% Progress):
   - Retrieves financial news from multiple sources (NewsAPI, NewsData, Webz)
   - Performs traditional sentiment analysis using VADER library
   - 🧠 **AI Context Analysis**: Market-specific financial language understanding
@@ -349,39 +360,36 @@ The multi-agent backend system built with Node.js and Express.
   - 🧠 **AI Sector Impact**: Industry and sector-specific sentiment insights
   - 🧠 **AI Forward-Looking Analysis**: Sentiment implications and market impact
   - Processes social media signals with enhanced AI context
+  - **Progress Mapping**: 35% → 50% → 60% → 66% (complete)
 
-- **`economicIndicatorAgent.js`** - AI-Enhanced Economic Indicator Agent:
-  - Fetches macroeconomic data from FRED API and World Bank
-  - Traditional economic regime analysis (expansion/contraction/neutral)
-  - 🧠 **AI Economic Context**: Nuanced regime analysis with confidence scoring
-  - 🧠 **AI Sector Impact**: Economic implications for different sectors
-  - 🧠 **AI Forward Outlook**: Economic scenario modeling and predictions
-  - Processes GDP, CPI, interest rates, unemployment with AI insights
-
-- **`analysisAgent.js`** - AI-Powered Analysis Agent:
-  - Consolidates data from all specialist agents
-  - Applies composite scoring algorithm (40% technical, 30% sentiment, 30% economic)
+- **`analysisAgent.js`** - AI-Powered Analysis Agent (66-100% Progress):
+  - Consolidates data from specialist agents (increased 2-minute timeout)
+  - Applies rebalanced composite scoring algorithm (**60% technical, 40% sentiment**)
   - 🧠 **AI Investment Recommendations**: Natural language reasoning for all time horizons
   - 🧠 **AI Market Context**: Comprehensive market analysis and positioning
   - 🧠 **AI Risk Assessment**: Detailed risk analysis with mitigation strategies
   - 🧠 **AI Investment Thesis**: Forward-looking scenario analysis
   - Produces enhanced confidence scores with AI-powered explanations
+  - **Progress Mapping**: 66% → 70-90% (data processing) → 95% → 100% (complete)
+  - **Fixed Message Processing**: Proper handling of agent data without premature completion
 
 - **`uiAgent.js`** - UI Agent:
   - Serves REST API endpoints
   - Manages WebSocket connections for real-time updates
   - Handles request routing and response formatting
-  - Coordinates agent communication
+  - Coordinates agent communication with enhanced logging
 
 **⚙️ Configuration (`/backend/src/config/`)**
 - **`index.js`** - Centralized configuration management:
   - Environment variable loading and validation
-  - API key management
-  - Default settings and fallbacks
+  - API key management  
+  - **Updated Analysis Weights**: Technical 60%, Sentiment 40%
+  - **Removed Economic Configuration**: No longer includes economic agent settings
   - Development vs production configurations
 
 **🔧 Utilities (`/backend/src/utils/`)**
 - **`redis.js`** - Redis client and messaging:
+  - **Fixed JSON Serialization**: Proper message handling between agents
   - Pub/sub message broker for inter-agent communication
   - Caching layer for API responses
   - Request tracking and session management
@@ -398,10 +406,10 @@ The multi-agent backend system built with Node.js and Express.
   - Model management and selection
   - Prompt engineering for financial analysis
   - JSON response parsing and fallback handling
-  - Specialized methods for sentiment, technical, and economic analysis
+  - Specialized methods for sentiment and technical analysis
 
 #### **Frontend (`/frontend/`)**
-Modern React application with real-time capabilities.
+Modern React application with optimized real-time capabilities.
 
 **⚛️ Components (`/frontend/src/components/`)**
 - **`StockSearchForm.js`** - Stock symbol input interface:
@@ -410,16 +418,26 @@ Modern React application with real-time capabilities.
   - Form submission handling
   - Error state management
 
-- **`LoadingIndicator.js`** - Real-time progress display:
-  - WebSocket progress updates
-  - Agent activity indicators
-  - Animated loading states
+- **`LoadingIndicator.js`** - **Enhanced 3-Stage Progress Display**:
+  - **Stage 1**: Stock Data (0-33%) - Technical analysis
+  - **Stage 2**: News Analysis (33-66%) - Sentiment processing  
+  - **Stage 3**: AI Analysis (66-100%) - Investment recommendations
+  - **Fixed WebSocket Progress Updates**: Proper prop-based progress handling
+  - Animated loading states with accurate stage mapping
   - Error and completion notifications
 
+- **`AnalysisResults.js`** - **Streamlined Results Display**:
+  - **Removed Economic Section**: No longer displays economic analysis
+  - **Enhanced Technical Analysis**: Displays comprehensive technical indicators
+  - **Enhanced Sentiment Analysis**: Shows AI-powered sentiment insights
+  - **Rebalanced Scoring**: Technical (60%) and Sentiment (40%) weights
+  - **Market Intelligence Focus**: Changed from "Economic Context" to "Market Intelligence"
+
 **🔗 Contexts (`/frontend/src/contexts/`)**
-- **`SocketContext.js`** - WebSocket connection management:
+- **`SocketContext.js`** - **Enhanced WebSocket Management**:
+  - **Fixed Room Subscription**: Proper `subscribe`/`unsubscribe` with request IDs
   - Real-time communication with backend
-  - Connection status monitoring
+  - Connection status monitoring  
   - Automatic reconnection logic
   - Event subscription and cleanup
 
@@ -429,19 +447,18 @@ Modern React application with real-time capabilities.
   - Cross-platform compatibility
   - Workspace management commands
 
-- **`README.md`** - Comprehensive project documentation
-- **`context.html`** - Formatted project requirements and specifications
-- **`intent.html`** - Original Microsoft Word requirements document
+- **`README.md`** - **Updated comprehensive documentation**
+- **`CHANGELOG.md`** - Version history including recent architectural changes
 
 ### 🏗️ Architecture Benefits
 
-This structure supports the multi-agent architecture by:
+This streamlined structure supports the 3-agent architecture by:
 
-1. **🔄 Modularity** - Each agent is self-contained with clear responsibilities
-2. **⚡ Scalability** - Agents can be deployed independently or scaled horizontally
-3. **🛡️ Reliability** - Isolated failure domains with graceful degradation
-4. **🔧 Maintainability** - Clear separation of concerns and standardized interfaces
-5. **🚀 Development** - Parallel development of different agents and features
+1. **🔄 Simplified Modularity** - Focused agents with clear responsibilities
+2. **⚡ Enhanced Performance** - Removed unnecessary economic processing overhead
+3. **🛡️ Improved Reliability** - Fixed communication issues and timeout handling
+4. **🔧 Better Maintainability** - Cleaner separation of concerns  
+5. **🚀 Faster Development** - Streamlined agent interactions and debugging
 
 ### 📋 Key Configuration Files
 
@@ -457,7 +474,7 @@ This structure supports the multi-agent architecture by:
 
 - **🚀 Start here**: `README.md` for setup instructions
 - **⚙️ Configuration**: `backend/config.example` for environment setup
-- **🤖 Agents**: `backend/src/agents/` for core business logic
+- **🤖 Agents**: `backend/src/agents/` for core business logic (3 agents)
 - **🖥️ UI Components**: `frontend/src/components/` for user interface
 - **📊 Real-time**: `frontend/src/contexts/SocketContext.js` for live updates
 - **🔧 Utilities**: `backend/src/utils/` for shared functionality
@@ -498,7 +515,6 @@ The application works with mock data, but for real analysis you'll need:
 | [Twelve Data](https://twelvedata.com/) | 800 req/day | Multi-asset data |
 | [NewsAPI](https://newsapi.org/) | 100 req/day | Global news headlines |
 | [NewsData.io](https://newsdata.io/) | 2000 req/day | News with advanced filtering |
-| [FRED API](https://fred.stlouisfed.org/) | Free | US economic indicators |
 
 ## 🚀 Installation & Setup
 
@@ -611,13 +627,12 @@ OLLAMA_ENABLED=true
 
 **Full Configuration** (for production use):
 ```env
-# API Keys
+# API Keys (Optional - app works with mock data)
 ALPHA_VANTAGE_API_KEY=your_key_here
 FINNHUB_API_KEY=your_key_here
 NEWS_API_KEY=your_key_here
 NEWSDATA_API_KEY=your_key_here
 WEBZ_API_KEY=your_key_here
-FRED_API_KEY=your_key_here
 
 # Server Configuration  
 PORT=3001
@@ -635,7 +650,6 @@ OLLAMA_MODEL=llama3.1:8b
 OLLAMA_SENTIMENT_MODEL=llama3.1:8b
 OLLAMA_ANALYSIS_MODEL=llama3.1:8b
 OLLAMA_TECHNICAL_MODEL=llama3.1:8b
-OLLAMA_ECONOMIC_MODEL=llama3.1:8b
 OLLAMA_TIMEOUT=30000
 OLLAMA_MAX_RETRIES=3
 OLLAMA_ENABLED=true
@@ -644,7 +658,6 @@ OLLAMA_ENABLED=true
 CACHE_TTL_SECONDS=300
 STOCK_DATA_CACHE_TTL=60
 NEWS_CACHE_TTL=1800
-ECONOMIC_DATA_CACHE_TTL=3600
 ```
 
 ### 6. Verify Installation
@@ -726,13 +739,14 @@ Once running, access the application at:
 ```
 POST /api/analyze/:symbol     # Start stock analysis
 GET  /api/health             # Health check
-GET  /api/status             # System status
+GET  /api/status/:requestId  # Request status
 ```
 
 ### WebSocket Events
 ```
 connect                      # Client connection
-analysis:progress           # Real-time progress updates  
+subscribe                   # Join analysis room  
+analysis:progress           # Real-time progress updates (3 stages)
 analysis:complete           # Final results
 analysis:error              # Error notifications
 disconnect                  # Client disconnection
@@ -757,7 +771,10 @@ npm run test:frontend
 1. Open http://localhost:3000
 2. Enter a stock symbol (e.g., "AAPL", "TSLA", "GOOGL")
 3. Click "Analyze Stock"
-4. Watch real-time progress updates
+4. Watch **3-stage real-time progress**:
+   - **Stage 1**: Stock Data (0-33%)
+   - **Stage 2**: News Analysis (33-66%)
+   - **Stage 3**: AI Analysis (66-100%)
 5. Review comprehensive analysis report
 
 ### Sample Symbols to Try
@@ -773,10 +790,13 @@ npm run test:frontend
 // backend/src/config/index.js
 module.exports = {
   analysis: {
-    sentimentWeight: 0.3,    // News sentiment influence
-    technicalWeight: 0.4,   // Technical analysis influence  
-    economicWeight: 0.3,    // Economic factors influence
-    confidenceThreshold: 0.6 // Minimum confidence for recommendations
+    weights: {
+      technical: 0.6,        // Technical analysis influence (increased)
+      sentiment: 0.4         // News sentiment influence (increased)
+      // economic: removed    // Economic analysis removed
+    },
+    confidenceThreshold: 0.6, // Minimum confidence for recommendations
+    timeout: 120000          // Analysis timeout (2 minutes)
   }
 }
 ```
@@ -786,8 +806,24 @@ module.exports = {
 CACHE_TTL_SECONDS=300           # General cache TTL
 STOCK_DATA_CACHE_TTL=60         # Stock data cache (1 minute)
 NEWS_CACHE_TTL=1800             # News cache (30 minutes)  
-ECONOMIC_DATA_CACHE_TTL=3600    # Economic data cache (1 hour)
 ```
+
+## 🔄 Recent Updates
+
+### Version 2.0.0 - Architecture Simplification
+- ✅ **Removed Economic Agent**: Simplified to 3-agent architecture
+- ✅ **Rebalanced Analysis**: 60% Technical, 40% Sentiment (was 40%, 30%, 30%)
+- ✅ **Fixed Progress Bar**: 3-stage progress (0-33%, 33-66%, 66-100%)
+- ✅ **Enhanced WebSocket**: Fixed room subscription and progress updates
+- ✅ **Fixed Agent Communication**: Resolved double JSON serialization
+- ✅ **Increased Timeout**: Analysis timeout increased to 2 minutes
+- ✅ **Improved Error Handling**: Better message processing and error recovery
+
+### System Improvements
+- 🔧 **Enhanced Logging**: Better debugging and monitoring
+- 🔧 **Performance Optimization**: Reduced processing overhead
+- 🔧 **Code Cleanup**: Removed unused economic configurations
+- 🔧 **UI Polish**: Updated progress indicators and descriptions
 
 ## 🐛 Troubleshooting
 
@@ -823,6 +859,11 @@ rm -rf node_modules package-lock.json
 npm run install:all
 ```
 
+**Progress Bar Not Updating**
+- Ensure WebSocket connection is established
+- Check browser console for connection errors
+- Verify backend is running on port 3001
+
 ### Logs Location
 - **Backend**: `backend/logs/`
 - **Console**: Real-time logs in terminal
@@ -838,10 +879,11 @@ This stock analysis application has been **completely transformed** with Ollama 
 |--------|-------------|----------------|
 | **Technical Analysis** | Mathematical indicators only | Indicators + Pattern Recognition + Natural Language Explanations |
 | **Sentiment Analysis** | VADER scores | VADER + Market Context + Theme Extraction + Sector Impact |
-| **Economic Analysis** | Regime classification | Regime + Forward Outlook + Scenario Modeling |
+| **Analysis Composition** | 3-agent system with economic data | **Streamlined 2-agent data collection** focusing on core metrics |
 | **Investment Recommendations** | Rule-based scoring | Scoring + Natural Language Reasoning + Risk Strategies |
 | **Explanations** | Basic rule descriptions | Detailed AI-powered investment thesis |
 | **Market Context** | Limited | Comprehensive narrative with forward-looking insights |
+| **Progress Tracking** | 4-stage progress | **Optimized 3-stage progress** for better UX |
 
 ### **🔬 Technical Implementation**
 
@@ -850,6 +892,7 @@ This stock analysis application has been **completely transformed** with Ollama 
 - **Graceful Fallbacks**: Full functionality with or without AI
 - **Performance Optimized**: AI response caching and intelligent retry logic
 - **Enterprise Ready**: Configurable models and prompts for different use cases
+- **Fixed Communication**: Resolved agent messaging and progress update issues
 
 ### **📊 Real-World Impact**
 
@@ -860,7 +903,7 @@ When analyzing a stock like **AAPL**, the AI enhancement provides:
 
 ### **📚 Additional Resources**
 
-- **[OLLAMA_ENHANCEMENT.md](./OLLAMA_ENHANCEMENT.md)** - Comprehensive AI enhancement documentation
+- **[CHANGELOG.md](./CHANGELOG.md)** - Detailed version history and recent updates
 - **[scripts/start-with-ollama.sh](./scripts/start-with-ollama.sh)** - Automated setup script
 - **[Ollama Official Documentation](https://ollama.ai/docs)** - LLM setup and model management
 
@@ -890,3 +933,4 @@ For support and questions:
 ---
 
 **Built with ❤️ using Node.js, React, and Redis** 
+*Enhanced with 🧠 Local AI Intelligence* 
