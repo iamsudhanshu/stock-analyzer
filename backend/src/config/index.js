@@ -99,6 +99,8 @@ const config = {
   queues: {
     stockData: 'stock_data_queue',
     news: 'news_queue',
+    fundamentalData: 'fundamental_data_queue',
+    competitiveData: 'competitive_data_queue',
     analysis: 'analysis_queue',
     ui: 'ui_queue'
   },

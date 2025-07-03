@@ -7,6 +7,8 @@ const redisClient = require('./utils/redis');
 // Import all agents
 const StockDataAgent = require('./agents/stockDataAgent');
 const NewsSentimentAgent = require('./agents/newsSentimentAgent');
+const FundamentalDataAgent = require('./agents/fundamentalDataAgent');
+const CompetitiveAgent = require('./agents/competitiveAgent');
 const AnalysisAgent = require('./agents/analysisAgent');
 const UIAgent = require('./agents/uiAgent');
 
@@ -68,17 +70,23 @@ class ApplicationManager {
       // Create agent instances
       const stockDataAgent = new StockDataAgent();
       const newsSentimentAgent = new NewsSentimentAgent();
+      const fundamentalDataAgent = new FundamentalDataAgent();
+      const competitiveAgent = new CompetitiveAgent();
       const analysisAgent = new AnalysisAgent();
 
       console.log('📦 [ApplicationManager] Created agents:', {
         StockDataAgent: !!stockDataAgent,
         NewsSentimentAgent: !!newsSentimentAgent,
+        FundamentalDataAgent: !!fundamentalDataAgent,
+        CompetitiveAgent: !!competitiveAgent,
         AnalysisAgent: !!analysisAgent
       });
 
       // Store agent references
       this.agents.set('StockDataAgent', stockDataAgent);
       this.agents.set('NewsSentimentAgent', newsSentimentAgent);
+      this.agents.set('FundamentalDataAgent', fundamentalDataAgent);
+      this.agents.set('CompetitiveAgent', competitiveAgent);
       this.agents.set('AnalysisAgent', analysisAgent);
 
       console.log('🔄 [ApplicationManager] Starting data agents in parallel...');
@@ -87,6 +95,8 @@ class ApplicationManager {
       await Promise.all([
         stockDataAgent.start().then(() => console.log('✅ [ApplicationManager] StockDataAgent started')),
         newsSentimentAgent.start().then(() => console.log('✅ [ApplicationManager] NewsSentimentAgent started')),
+        fundamentalDataAgent.start().then(() => console.log('✅ [ApplicationManager] FundamentalDataAgent started')),
+        competitiveAgent.start().then(() => console.log('✅ [ApplicationManager] CompetitiveAgent started')),
         analysisAgent.start().then(() => console.log('✅ [ApplicationManager] AnalysisAgent started'))
       ]);
 

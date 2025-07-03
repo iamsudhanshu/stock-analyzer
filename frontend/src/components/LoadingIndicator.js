@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, TrendingUp, Newspaper, Brain, Zap, Clock } from 'lucide-react';
+import { Activity, TrendingUp, Newspaper, Brain, Zap, Clock, BarChart3, Users } from 'lucide-react';
 
 const LoadingIndicator = ({ symbol, progress, message }) => {
   const [displayProgress, setDisplayProgress] = useState(progress || 0);
@@ -21,6 +21,22 @@ const LoadingIndicator = ({ symbol, progress, message }) => {
       completed: false, 
       progress: 0, 
       description: 'Processing latest news and social media sentiment',
+      status: 'pending'
+    },
+    { 
+      name: 'Fundamental Data Analysis', 
+      icon: BarChart3, 
+      completed: false, 
+      progress: 0, 
+      description: 'Analyzing financial statements and key ratios',
+      status: 'pending'
+    },
+    { 
+      name: 'Competitive Analysis', 
+      icon: Users, 
+      completed: false, 
+      progress: 0, 
+      description: 'Evaluating market position and competitive landscape',
       status: 'pending'
     },
     { 
@@ -66,34 +82,54 @@ const LoadingIndicator = ({ symbol, progress, message }) => {
         });
       }
       
-      // Stage 0: Stock Data (0-33%)
-      if (totalProgress >= 0 && totalProgress < 33) {
+      // Stage 0: Stock Data (0-20%)
+      if (totalProgress >= 0 && totalProgress < 20) {
         newStages[0].status = 'active';
-        newStages[0].progress = Math.min(100, (totalProgress / 33) * 100);
-      } else if (totalProgress >= 33) {
+        newStages[0].progress = Math.min(100, (totalProgress / 20) * 100);
+      } else if (totalProgress >= 20) {
         newStages[0].completed = true;
         newStages[0].progress = 100;
         newStages[0].status = 'completed';
       }
       
-      // Stage 1: News Sentiment (33-66%)
-      if (totalProgress >= 33 && totalProgress < 66) {
+      // Stage 1: News Sentiment (20-40%)
+      if (totalProgress >= 20 && totalProgress < 40) {
         newStages[1].status = 'active';
-        newStages[1].progress = Math.min(100, ((totalProgress - 33) / 33) * 100);
-      } else if (totalProgress >= 66) {
+        newStages[1].progress = Math.min(100, ((totalProgress - 20) / 20) * 100);
+      } else if (totalProgress >= 40) {
         newStages[1].completed = true;
         newStages[1].progress = 100;
         newStages[1].status = 'completed';
       }
       
-      // Stage 2: AI Analysis (66-100%)
-      if (totalProgress >= 66) {
+      // Stage 2: Fundamental Data (40-60%)
+      if (totalProgress >= 40 && totalProgress < 60) {
         newStages[2].status = 'active';
-        newStages[2].progress = Math.min(100, ((totalProgress - 66) / 34) * 100);
+        newStages[2].progress = Math.min(100, ((totalProgress - 40) / 20) * 100);
+      } else if (totalProgress >= 60) {
+        newStages[2].completed = true;
+        newStages[2].progress = 100;
+        newStages[2].status = 'completed';
+      }
+      
+      // Stage 3: Competitive Analysis (60-80%)
+      if (totalProgress >= 60 && totalProgress < 80) {
+        newStages[3].status = 'active';
+        newStages[3].progress = Math.min(100, ((totalProgress - 60) / 20) * 100);
+      } else if (totalProgress >= 80) {
+        newStages[3].completed = true;
+        newStages[3].progress = 100;
+        newStages[3].status = 'completed';
+      }
+      
+      // Stage 4: AI Analysis (80-100%)
+      if (totalProgress >= 80) {
+        newStages[4].status = 'active';
+        newStages[4].progress = Math.min(100, ((totalProgress - 80) / 20) * 100);
         if (totalProgress >= 95) {
-          newStages[2].completed = true;
-          newStages[2].progress = 100;
-          newStages[2].status = 'completed';
+          newStages[4].completed = true;
+          newStages[4].progress = 100;
+          newStages[4].status = 'completed';
         }
       }
       

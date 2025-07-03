@@ -4,7 +4,6 @@ import {
   TrendingDown, 
   AlertTriangle, 
   CheckCircle, 
-  XCircle, 
   Info,
   BarChart3,
   Activity,
@@ -16,18 +15,53 @@ import {
   ChevronUp,
   Sparkles,
   Clock,
-  Star
+  Star,
+  Calendar,
+  Minus,
+  Zap,
+  Eye,
+  Settings,
+  Award,
+  PieChart,
+  LineChart,
+  ArrowUp,
+  ArrowDown,
+  CheckSquare,
+  Users,
+  Bug,
+  Database,
+  Code,
+  FileText
 } from 'lucide-react';
+import DebugModal from './DebugModal';
 
 const AnalysisResults = ({ data }) => {
   const [expandedSections, setExpandedSections] = useState({
     technical: true,
     sentiment: true,
-    risk: true
+    risk: true,
+    recommendations: true,
+    timeHorizons: true,
+    scenarios: true,
+    monitoring: true,
+    insights: true,
+    llmWarning: true,
+    fundamental: true,
+    competitive: true
   });
 
-  if (!data) {
-    return null;
+  const [debugModal, setDebugModal] = useState({
+    isOpen: false,
+    agentData: null
+  });
+
+  if (!data || !data.analysis) {
+    return (
+      <div className="p-6 text-center">
+        <Info className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        <p className="text-gray-600">No analysis data available</p>
+      </div>
+    );
   }
 
   const {
@@ -36,8 +70,13 @@ const AnalysisResults = ({ data }) => {
     stockData,
     newsSentiment,
     recommendation,
-    timestamp
+    rawData
   } = data;
+
+  // Check if LLM analysis failed
+  const isLLMFailed = !analysis.llmEnhanced;
+  const hasAnalysisWarning = analysis.analysisWarning;
+  const llmFailureReason = analysis.llmFailureReason;
 
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
@@ -46,22 +85,62 @@ const AnalysisResults = ({ data }) => {
     }));
   };
 
+  const openDebugModal = (agentType, inputData, outputData, status = 'success') => {
+    setDebugModal({
+      isOpen: true,
+      agentData: {
+        agentType,
+        inputData,
+        outputData,
+        timestamp: analysis.generatedAt,
+        status
+      }
+    });
+  };
+
+  const closeDebugModal = () => {
+    setDebugModal({
+      isOpen: false,
+      agentData: null
+    });
+  };
+
   // Helper function to get status color classes
   const getStatusColor = (sentiment) => {
     switch (sentiment?.toLowerCase()) {
       case 'positive':
       case 'bullish':
       case 'buy':
+      case 'strong_buy':
         return 'text-green-700 bg-gradient-to-r from-green-50 to-emerald-100 border-green-300';
       case 'negative':
       case 'bearish':
       case 'sell':
+      case 'strong_sell':
         return 'text-red-700 bg-gradient-to-r from-red-50 to-rose-100 border-red-300';
       case 'neutral':
       case 'hold':
         return 'text-yellow-700 bg-gradient-to-r from-yellow-50 to-amber-100 border-yellow-300';
       default:
         return 'text-gray-700 bg-gradient-to-r from-gray-50 to-slate-100 border-gray-300';
+    }
+  };
+
+  // Helper function to get recommendation icon
+  const getRecommendationIcon = (action) => {
+    switch (action?.toLowerCase()) {
+      case 'strong_buy':
+        return <ArrowUp className="h-6 w-6 text-green-600" />;
+      case 'buy':
+        return <TrendingUp className="h-6 w-6 text-green-600" />;
+      case 'hold':
+        return <Minus className="h-6 w-6 text-yellow-600" />;
+      case 'sell':
+        return <TrendingDown className="h-6 w-6 text-red-600" />;
+      case 'strong_sell':
+        return <ArrowDown className="h-6 w-6 text-red-600" />;
+      default:
+        return <Target className="h-6 w-6 text-gray-600" />;
     }
   };
 
@@ -81,8 +160,324 @@ const AnalysisResults = ({ data }) => {
     return `$${value.toLocaleString()}`;
   };
 
+  const formatPercentage = (value) => {
+    return `${(value * 100).toFixed(1)}%`;
+  };
+
+  // Debug button component
+  const DebugButton = ({ agentType, inputData, outputData, status, icon, color }) => (
+    <button
+      onClick={() => openDebugModal(agentType, inputData, outputData, status)}
+      className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 ${color}`}
+      title={`Debug ${agentType} data`}
+    >
+      {icon}
+      <span>Debug {agentType.replace('Agent', '')}</span>
+      <Bug className="h-4 w-4" />
+    </button>
+  );
+
   return (
-    <div className="space-y-8 fade-in">
+    <div className="max-w-6xl mx-auto p-6 space-y-8">
+      {/* Debug Modal */}
+      <DebugModal 
+        isOpen={debugModal.isOpen}
+        onClose={closeDebugModal}
+        agentData={debugModal.agentData}
+      />
+
+      {/* Debug Panel */}
+      <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-2">
+            <Bug className="h-5 w-5 text-gray-600" />
+            <h3 className="text-lg font-semibold text-gray-900">Agent Debug Panel</h3>
+          </div>
+          <span className="text-sm text-gray-600">Click to inspect agent data</span>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+          <DebugButton
+            agentType="StockDataAgent"
+            inputData={{ symbol }}
+            outputData={rawData?.stockData}
+            status={rawData?.stockData ? 'success' : 'error'}
+            icon={<Activity className="h-4 w-4" />}
+            color="bg-blue-100 text-blue-700 hover:bg-blue-200"
+          />
+          
+          <DebugButton
+            agentType="NewsSentimentAgent"
+            inputData={{ symbol }}
+            outputData={rawData?.newsData}
+            status={rawData?.newsData ? 'success' : 'error'}
+            icon={<FileText className="h-4 w-4" />}
+            color="bg-green-100 text-green-700 hover:bg-green-200"
+          />
+          
+          <DebugButton
+            agentType="FundamentalDataAgent"
+            inputData={{ symbol }}
+            outputData={rawData?.fundamentalData}
+            status={rawData?.fundamentalData ? 'success' : 'error'}
+            icon={<Database className="h-4 w-4" />}
+            color="bg-purple-100 text-purple-700 hover:bg-purple-200"
+          />
+          
+          <DebugButton
+            agentType="CompetitiveAgent"
+            inputData={{ symbol }}
+            outputData={rawData?.competitiveData}
+            status={rawData?.competitiveData ? 'success' : 'error'}
+            icon={<Code className="h-4 w-4" />}
+            color="bg-orange-100 text-orange-700 hover:bg-orange-200"
+          />
+          
+          <DebugButton
+            agentType="AnalysisAgent"
+            inputData={rawData}
+            outputData={analysis}
+            status={analysis ? 'success' : 'error'}
+            icon={<Activity className="h-4 w-4" />}
+            color="bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+          />
+        </div>
+        
+        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-center space-x-2 text-sm text-yellow-800">
+            <Info className="h-4 w-4" />
+            <span>
+              <strong>Debug Info:</strong> Use these buttons to inspect what data each agent received and produced. 
+              This helps identify why some analysis sections might be missing.
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Agent Data Status */}
+      {analysis.agentDataStatus && (
+        <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+          <div className="flex items-center space-x-2 mb-4">
+            <Activity className="h-5 w-5 text-gray-600" />
+            <h3 className="text-lg font-semibold text-gray-900">Agent Data Status</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Object.entries(analysis.agentDataStatus).map(([agentName, status]) => (
+              <div 
+                key={agentName}
+                className={`p-4 rounded-lg border-2 ${
+                  status.status === 'success' 
+                    ? 'bg-green-50 border-green-200' 
+                    : 'bg-red-50 border-red-200'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium text-gray-900">
+                    {agentName.replace('Agent', '')}
+                  </h4>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    status.status === 'success' 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {status.status}
+                  </span>
+                </div>
+                
+                <div className="text-sm text-gray-600 space-y-1">
+                  <div>
+                    <span className="font-medium">Data:</span> {status.hasData ? 'Available' : 'Missing'}
+                  </div>
+                  {status.hasData && (
+                    <>
+                      <div>
+                        <span className="font-medium">Keys:</span> {status.dataKeys.length}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {status.dataKeys.slice(0, 3).join(', ')}
+                        {status.dataKeys.length > 3 && '...'}
+                      </div>
+                    </>
+                  )}
+                  {status.timestamp && (
+                    <div className="text-xs text-gray-500">
+                      {new Date(status.timestamp).toLocaleTimeString()}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {Object.values(analysis.agentDataStatus).some(s => s.status === 'missing') && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center space-x-2 text-sm text-red-800">
+                <AlertTriangle className="h-4 w-4" />
+                <span>
+                  <strong>Warning:</strong> Some agents are missing data. This may cause incomplete analysis sections.
+                  Check the debug buttons above to inspect the data flow.
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Critical Error Banner - Only shown when LLM fails */}
+      {isLLMFailed && (
+        <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 shadow-lg">
+          <div className="flex items-center">
+            <AlertTriangle className="h-8 w-8 text-red-600 mr-4" />
+            <div className="flex-grow">
+              <h2 className="text-xl font-bold text-red-800 mb-1">
+                ⚠️ AI Analysis Failed - Using Fallback Traditional Analysis
+              </h2>
+              <p className="text-red-700 text-sm">
+                The advanced AI analysis could not be completed{llmFailureReason && ` due to: ${llmFailureReason}`}. 
+                This analysis uses basic mathematical models and may be less accurate. 
+                <span className="font-semibold"> See detailed error information below.</span>
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="inline-block bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
+                Traditional Analysis
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Header with Analysis Type and Timestamp */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-200">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Activity className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {symbol} Investment Analysis
+              </h1>
+              <div className="flex items-center space-x-4 mt-1">
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  isLLMFailed 
+                    ? 'bg-amber-100 text-amber-800' 
+                    : 'bg-green-100 text-green-800'
+                }`}>
+                  {analysis.analysisType || 'Standard Analysis'}
+                </span>
+                <span className="text-gray-500 text-sm">
+                  Generated: {analysis.generatedAt ? new Date(analysis.generatedAt).toLocaleString() : 'Just now'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* LLM Failure Warning - Prominent Alert */}
+      {hasAnalysisWarning && (
+        <div className="bg-amber-50 border-l-4 border-amber-400 rounded-lg shadow-md">
+          <div className="p-6">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <AlertTriangle className="h-6 w-6 text-amber-600" />
+              </div>
+              <div className="ml-3 flex-grow">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-amber-800">
+                    {hasAnalysisWarning.title}
+                  </h3>
+                  <button
+                    onClick={() => toggleSection('llmWarning')}
+                    className="text-amber-600 hover:text-amber-800 transition-colors"
+                  >
+                    {expandedSections.llmWarning ? 
+                      <ChevronUp className="h-5 w-5" /> : 
+                      <ChevronDown className="h-5 w-5" />
+                    }
+                  </button>
+                </div>
+                
+                <p className="mt-2 text-amber-700 font-medium">
+                  {hasAnalysisWarning.message}
+                </p>
+                
+                {/* Show specific error reason if available */}
+                {llmFailureReason && (
+                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <h4 className="font-semibold text-red-800 mb-1">Error Details:</h4>
+                    <p className="text-red-700 text-sm font-mono">
+                      {llmFailureReason}
+                    </p>
+                  </div>
+                )}
+                
+                {expandedSections.llmWarning && (
+                  <div className="mt-4 space-y-3">
+                    <div className="bg-amber-100 rounded-lg p-4">
+                      <h4 className="font-semibold text-amber-800 mb-2">Impact on Analysis Quality:</h4>
+                      <p className="text-amber-700 text-sm">
+                        {hasAnalysisWarning.impact}
+                      </p>
+                    </div>
+                    
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <h4 className="font-semibold text-blue-800 mb-2">How to Fix This:</h4>
+                      <ul className="text-blue-700 text-sm space-y-1">
+                        <li>• Ensure Ollama is running: <code className="bg-blue-100 px-1 rounded">ollama serve</code></li>
+                        <li>• Check if the model is available: <code className="bg-blue-100 px-1 rounded">ollama pull llama3.1:8b</code></li>
+                        <li>• Verify Ollama is accessible at: <code className="bg-blue-100 px-1 rounded">http://localhost:11434</code></li>
+                        <li>• Restart the backend service after fixing Ollama</li>
+                        <li>• Try analyzing {symbol} again after fixing the issue</li>
+                      </ul>
+                    </div>
+                    
+                    <div className="bg-gray-100 rounded-lg p-4">
+                      <h4 className="font-semibold text-gray-800 mb-2">What This Means for Your Analysis:</h4>
+                      <ul className="text-gray-700 text-sm space-y-1">
+                        <li>• Recommendations may be less specific to {symbol}</li>
+                        <li>• Limited integration of recent market news</li>
+                        <li>• Generic price targets instead of contextual analysis</li>
+                        <li>• Reduced accuracy for current market conditions</li>
+                        <li>• Mathematical models used instead of AI reasoning</li>
+                      </ul>
+                    </div>
+                    
+                    <div className="bg-green-50 rounded-lg p-4">
+                      <h4 className="font-semibold text-green-800 mb-2">Next Steps:</h4>
+                      <div className="text-green-700 text-sm space-y-2">
+                        <p>1. <strong>Fix the LLM service</strong> using the steps above</p>
+                        <p>2. <strong>Refresh your browser</strong> and search for {symbol} again</p>
+                        <p>3. <strong>Look for the green "AI-Powered Analysis Complete" banner</strong> to confirm AI is working</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success indicator for LLM analysis */}
+      {!hasAnalysisWarning && analysis.llmEnhanced && (
+        <div className="bg-green-50 border-l-4 border-green-400 rounded-lg p-4">
+          <div className="flex items-center">
+            <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
+            <div>
+              <h3 className="text-sm font-medium text-green-800">
+                AI-Powered Analysis Complete
+              </h3>
+              <p className="text-green-700 text-sm mt-1">
+                This analysis was generated using advanced AI models for maximum accuracy and contextual insights.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header Card */}
       <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
         <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white p-8">
@@ -102,7 +497,7 @@ const AnalysisResults = ({ data }) => {
               <div className="flex items-center text-blue-100 mb-1">
                 <Clock className="h-4 w-4 mr-1" />
                 <span className="text-sm">
-                  {timestamp ? new Date(timestamp).toLocaleString() : 'Just now'}
+                  {analysis.generatedAt ? new Date(analysis.generatedAt).toLocaleString() : 'Just now'}
                 </span>
               </div>
               <div className="flex items-center text-blue-200">
@@ -119,7 +514,7 @@ const AnalysisResults = ({ data }) => {
             <div className={`p-6 rounded-2xl border-2 shadow-lg ${getStatusColor(recommendation.action)}`}>
               <div className="flex items-start">
                 <div className="p-2 bg-white rounded-lg mr-4 shadow-sm">
-                  <Target className="h-6 w-6 text-gray-700" />
+                  {getRecommendationIcon(recommendation.action)}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-2">
@@ -144,6 +539,416 @@ const AnalysisResults = ({ data }) => {
           </div>
         )}
       </div>
+
+      {/* Enhanced Investment Recommendations */}
+      {analysis?.recommendations && (
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+          <div 
+            className="p-6 bg-gradient-to-r from-green-50 to-blue-100 border-b border-gray-200 cursor-pointer hover:bg-gradient-to-r hover:from-green-100 hover:to-blue-200 transition-all duration-300"
+            onClick={() => toggleSection('recommendations')}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="p-2 bg-green-600 rounded-lg mr-3">
+                  <Award className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-800">Investment Recommendations</h3>
+              </div>
+              {expandedSections.recommendations ? (
+                <ChevronUp className="h-5 w-5 text-gray-600" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-gray-600" />
+              )}
+            </div>
+          </div>
+          
+          {expandedSections.recommendations && (
+            <div className="p-6 slide-up">
+              {/* Executive Summary */}
+              {analysis.recommendations.executiveSummary && (
+                <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl">
+                  <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+                    <Sparkles className="h-5 w-5 mr-2 text-blue-600" />
+                    Executive Summary
+                  </h4>
+                  <p className="text-lg leading-relaxed text-gray-700">
+                    {analysis.recommendations.executiveSummary}
+                  </p>
+                  {analysis.recommendations.overallRating && (
+                    <div className="mt-4 flex items-center">
+                      <div className={`px-4 py-2 rounded-lg font-semibold ${getStatusColor(analysis.recommendations.overallRating)}`}>
+                        Overall Rating: {analysis.recommendations.overallRating}
+                      </div>
+                      {analysis.recommendations.overallConfidence && (
+                        <span className="ml-3 text-sm text-gray-600">
+                          {formatPercentage(analysis.recommendations.overallConfidence)} confidence
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Time Horizon Analysis */}
+              <div className="mb-8">
+                <div 
+                  className="flex items-center justify-between mb-4 cursor-pointer"
+                  onClick={() => toggleSection('timeHorizons')}
+                >
+                  <h4 className="text-lg font-semibold text-gray-800 flex items-center">
+                    <Calendar className="h-5 w-5 mr-2 text-purple-600" />
+                    Time Horizon Analysis
+                  </h4>
+                  {expandedSections.timeHorizons ? (
+                    <ChevronUp className="h-5 w-5 text-gray-600" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-gray-600" />
+                  )}
+                </div>
+                
+                {expandedSections.timeHorizons && (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Short Term */}
+                    {analysis.recommendations.shortTerm && (
+                      <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-6 border border-orange-200">
+                        <div className="flex items-center mb-4">
+                          <Zap className="h-6 w-6 text-orange-600 mr-2" />
+                          <h5 className="text-lg font-semibold text-gray-800">Short-Term (1-4 weeks)</h5>
+                        </div>
+                        
+                        <div className={`p-4 rounded-lg mb-4 ${getStatusColor(analysis.recommendations.shortTerm.recommendation)}`}>
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-lg">{analysis.recommendations.shortTerm.recommendation}</span>
+                            <span className="text-sm">{formatPercentage(analysis.recommendations.shortTerm.confidence)} confidence</span>
+                          </div>
+                        </div>
+                        
+                        {/* LLM Limitation Warning for Short Term */}
+                        {analysis.recommendations.shortTerm.limitationsWarning && (
+                          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                            <div className="flex items-start space-x-2">
+                              <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                              <p className="text-amber-700 text-sm">
+                                {analysis.recommendations.shortTerm.limitationsWarning}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="space-y-3">
+                          {analysis.recommendations.shortTerm.priceTargets && (
+                            <div className="bg-white rounded-lg p-3">
+                              <div className="text-sm font-semibold text-gray-700 mb-1">Price Targets</div>
+                              <div className="text-sm text-gray-600">
+                                Primary: ${analysis.recommendations.shortTerm.priceTargets.primary}
+                                {analysis.recommendations.shortTerm.priceTargets.secondary && 
+                                  ` | Secondary: $${analysis.recommendations.shortTerm.priceTargets.secondary}`}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {analysis.recommendations.shortTerm.stopLoss && (
+                            <div className="bg-white rounded-lg p-3">
+                              <div className="text-sm font-semibold text-gray-700 mb-1">Stop Loss</div>
+                              <div className="text-sm text-gray-600">${analysis.recommendations.shortTerm.stopLoss.level}</div>
+                            </div>
+                          )}
+                          
+                          {analysis.recommendations.shortTerm.actionItems && (
+                            <div className="bg-white rounded-lg p-3">
+                              <div className="text-sm font-semibold text-gray-700 mb-2">Action Items</div>
+                              <ul className="text-sm text-gray-600 space-y-1">
+                                {analysis.recommendations.shortTerm.actionItems.map((item, idx) => (
+                                  <li key={idx} className="flex items-start">
+                                    <CheckSquare className="h-3 w-3 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                                    {item}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Mid Term */}
+                    {analysis.recommendations.midTerm && (
+                      <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
+                        <div className="flex items-center mb-4">
+                          <LineChart className="h-6 w-6 text-blue-600 mr-2" />
+                          <h5 className="text-lg font-semibold text-gray-800">Mid-Term (1-6 months)</h5>
+                        </div>
+                        
+                        <div className={`p-4 rounded-lg mb-4 ${getStatusColor(analysis.recommendations.midTerm.recommendation)}`}>
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-lg">{analysis.recommendations.midTerm.recommendation}</span>
+                            <span className="text-sm">{formatPercentage(analysis.recommendations.midTerm.confidence)} confidence</span>
+                          </div>
+                        </div>
+                        
+                        {/* LLM Limitation Warning for Mid Term */}
+                        {analysis.recommendations.midTerm.limitationsWarning && (
+                          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                            <div className="flex items-start space-x-2">
+                              <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                              <p className="text-amber-700 text-sm">
+                                {analysis.recommendations.midTerm.limitationsWarning}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="space-y-3">
+                          {analysis.recommendations.midTerm.priceTargets && (
+                            <div className="bg-white rounded-lg p-3">
+                              <div className="text-sm font-semibold text-gray-700 mb-1">Price Targets</div>
+                              <div className="text-sm text-gray-600">
+                                Conservative: ${analysis.recommendations.midTerm.priceTargets.conservative}
+                                {analysis.recommendations.midTerm.priceTargets.optimistic && 
+                                  ` | Optimistic: $${analysis.recommendations.midTerm.priceTargets.optimistic}`}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {analysis.recommendations.midTerm.keyMilestones && (
+                            <div className="bg-white rounded-lg p-3">
+                              <div className="text-sm font-semibold text-gray-700 mb-2">Key Milestones</div>
+                              <ul className="text-sm text-gray-600 space-y-1">
+                                {analysis.recommendations.midTerm.keyMilestones.map((milestone, idx) => (
+                                  <li key={idx} className="flex items-start">
+                                    <Calendar className="h-3 w-3 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                                    {milestone}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          
+                          {analysis.recommendations.midTerm.actionItems && (
+                            <div className="bg-white rounded-lg p-3">
+                              <div className="text-sm font-semibold text-gray-700 mb-2">Action Items</div>
+                              <ul className="text-sm text-gray-600 space-y-1">
+                                {analysis.recommendations.midTerm.actionItems.map((item, idx) => (
+                                  <li key={idx} className="flex items-start">
+                                    <CheckSquare className="h-3 w-3 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                                    {item}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Long Term */}
+                    {analysis.recommendations.longTerm && (
+                      <div className="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl p-6 border border-green-200">
+                        <div className="flex items-center mb-4">
+                          <TrendingUp className="h-6 w-6 text-green-600 mr-2" />
+                          <h5 className="text-lg font-semibold text-gray-800">Long-Term (6+ months)</h5>
+                        </div>
+                        
+                        <div className={`p-4 rounded-lg mb-4 ${getStatusColor(analysis.recommendations.longTerm.recommendation)}`}>
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-lg">{analysis.recommendations.longTerm.recommendation}</span>
+                            <span className="text-sm">{formatPercentage(analysis.recommendations.longTerm.confidence)} confidence</span>
+                          </div>
+                        </div>
+                        
+                        {/* LLM Limitation Warning for Long Term */}
+                        {analysis.recommendations.longTerm.limitationsWarning && (
+                          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                            <div className="flex items-start space-x-2">
+                              <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                              <p className="text-amber-700 text-sm">
+                                {analysis.recommendations.longTerm.limitationsWarning}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="space-y-3">
+                          {analysis.recommendations.longTerm.fairValueAssessment && (
+                            <div className="bg-white rounded-lg p-3">
+                              <div className="text-sm font-semibold text-gray-700 mb-1">Fair Value Assessment</div>
+                              <div className="text-sm text-gray-600">
+                                Intrinsic Value: ${analysis.recommendations.longTerm.fairValueAssessment.intrinsicValue}
+                                {analysis.recommendations.longTerm.fairValueAssessment.currentDiscount && 
+                                  ` | Discount: ${analysis.recommendations.longTerm.fairValueAssessment.currentDiscount}`}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {analysis.recommendations.longTerm.growthDrivers && (
+                            <div className="bg-white rounded-lg p-3">
+                              <div className="text-sm font-semibold text-gray-700 mb-2">Growth Drivers</div>
+                              <ul className="text-sm text-gray-600 space-y-1">
+                                {analysis.recommendations.longTerm.growthDrivers.map((driver, idx) => (
+                                  <li key={idx} className="flex items-start">
+                                    <ArrowUp className="h-3 w-3 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                                    {driver}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          
+                          {analysis.recommendations.longTerm.actionItems && (
+                            <div className="bg-white rounded-lg p-3">
+                              <div className="text-sm font-semibold text-gray-700 mb-2">Action Items</div>
+                              <ul className="text-sm text-gray-600 space-y-1">
+                                {analysis.recommendations.longTerm.actionItems.map((item, idx) => (
+                                  <li key={idx} className="flex items-start">
+                                    <CheckSquare className="h-3 w-3 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                                    {item}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Scenario Analysis */}
+              {analysis.recommendations.scenarioAnalysis && (
+                <div className="mb-8">
+                  <div 
+                    className="flex items-center justify-between mb-4 cursor-pointer"
+                    onClick={() => toggleSection('scenarios')}
+                  >
+                    <h4 className="text-lg font-semibold text-gray-800 flex items-center">
+                      <PieChart className="h-5 w-5 mr-2 text-indigo-600" />
+                      Scenario Analysis
+                    </h4>
+                    {expandedSections.scenarios ? (
+                      <ChevronUp className="h-5 w-5 text-gray-600" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-gray-600" />
+                    )}
+                  </div>
+                  
+                  {expandedSections.scenarios && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {/* Bull Case */}
+                      {analysis.recommendations.scenarioAnalysis.bullCase && (
+                        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
+                          <div className="flex items-center mb-3">
+                            <TrendingUp className="h-5 w-5 text-green-600 mr-2" />
+                            <h5 className="font-semibold text-gray-800">Bull Case</h5>
+                            <span className="ml-auto text-sm text-green-600 font-medium">
+                              {formatPercentage(analysis.recommendations.scenarioAnalysis.bullCase.probability)}
+                            </span>
+                          </div>
+                          <div className="text-2xl font-bold text-green-700 mb-2">
+                            ${analysis.recommendations.scenarioAnalysis.bullCase.priceTarget}
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            {analysis.recommendations.scenarioAnalysis.bullCase.description}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Base Case */}
+                      {analysis.recommendations.scenarioAnalysis.baseCase && (
+                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
+                                                     <div className="flex items-center mb-3">
+                             <Minus className="h-5 w-5 text-blue-600 mr-2" />
+                             <h5 className="font-semibold text-gray-800">Base Case</h5>
+                            <span className="ml-auto text-sm text-blue-600 font-medium">
+                              {formatPercentage(analysis.recommendations.scenarioAnalysis.baseCase.probability)}
+                            </span>
+                          </div>
+                          <div className="text-2xl font-bold text-blue-700 mb-2">
+                            ${analysis.recommendations.scenarioAnalysis.baseCase.priceTarget}
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            {analysis.recommendations.scenarioAnalysis.baseCase.description}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Bear Case */}
+                      {analysis.recommendations.scenarioAnalysis.bearCase && (
+                        <div className="bg-gradient-to-br from-red-50 to-rose-50 rounded-xl p-6 border border-red-200">
+                          <div className="flex items-center mb-3">
+                            <TrendingDown className="h-5 w-5 text-red-600 mr-2" />
+                            <h5 className="font-semibold text-gray-800">Bear Case</h5>
+                            <span className="ml-auto text-sm text-red-600 font-medium">
+                              {formatPercentage(analysis.recommendations.scenarioAnalysis.bearCase.probability)}
+                            </span>
+                          </div>
+                          <div className="text-2xl font-bold text-red-700 mb-2">
+                            ${analysis.recommendations.scenarioAnalysis.bearCase.priceTarget}
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            {analysis.recommendations.scenarioAnalysis.bearCase.description}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Monitoring Metrics */}
+              {analysis.recommendations.monitoringMetrics && (
+                <div className="mb-8">
+                  <div 
+                    className="flex items-center justify-between mb-4 cursor-pointer"
+                    onClick={() => toggleSection('monitoring')}
+                  >
+                    <h4 className="text-lg font-semibold text-gray-800 flex items-center">
+                      <Eye className="h-5 w-5 mr-2 text-purple-600" />
+                      Key Monitoring Metrics
+                    </h4>
+                    {expandedSections.monitoring ? (
+                      <ChevronUp className="h-5 w-5 text-gray-600" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-gray-600" />
+                    )}
+                  </div>
+                  
+                  {expandedSections.monitoring && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {analysis.recommendations.monitoringMetrics.map((metric, idx) => (
+                        <div key={idx} className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200">
+                          <div className="flex items-center">
+                            <Settings className="h-4 w-4 text-purple-600 mr-2" />
+                            <span className="text-sm font-medium text-gray-700">{metric}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Key Insights */}
+              {analysis.recommendations.keyInsights && (
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6">
+                  <h4 className="font-semibold text-gray-800 mb-4 flex items-center">
+                    <Sparkles className="h-5 w-5 mr-2 text-indigo-600" />
+                    Key Insights
+                  </h4>
+                  <div className="space-y-3">
+                    {analysis.recommendations.keyInsights.map((insight, idx) => (
+                      <div key={idx} className="flex items-start p-4 bg-white rounded-lg shadow-sm">
+                        <div className="w-2 h-2 bg-indigo-500 rounded-full mr-3 flex-shrink-0 mt-3"></div>
+                        <span className="text-sm text-gray-700 leading-relaxed">{insight}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Technical Analysis Section */}
       {stockData && (
@@ -323,6 +1128,248 @@ const AnalysisResults = ({ data }) => {
         </div>
       )}
 
+      {/* Fundamental Analysis Section */}
+      {data.rawData?.fundamentalData && (
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+          <div 
+            className="p-6 bg-gradient-to-r from-green-50 to-emerald-100 border-b border-gray-200 cursor-pointer hover:bg-gradient-to-r hover:from-green-100 hover:to-emerald-200 transition-all duration-300"
+            onClick={() => toggleSection('fundamental')}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="p-2 bg-green-600 rounded-lg mr-3">
+                  <BarChart3 className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-800">Fundamental Analysis</h3>
+              </div>
+              {expandedSections.fundamental ? (
+                <ChevronUp className="h-5 w-5 text-gray-600" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-gray-600" />
+              )}
+            </div>
+          </div>
+          
+          {expandedSections.fundamental && (
+            <div className="p-6 slide-up">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                {/* Key Financial Metrics */}
+                {data.rawData.fundamentalData.financialMetrics && (
+                  <div className="md:col-span-2 bg-gradient-to-r from-gray-50 to-green-50 rounded-xl p-6">
+                    <h4 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                      <DollarSign className="h-5 w-5 mr-2 text-green-600" />
+                      Key Financial Metrics
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {Object.entries(data.rawData.fundamentalData.financialMetrics).map(([key, value]) => (
+                        <div key={key} className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300">
+                          <h5 className="font-medium text-gray-700 text-sm mb-1">
+                            {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                          </h5>
+                          <p className="text-lg font-bold text-gray-900">
+                            {typeof value === 'number' ? (value >= 1e9 ? `$${(value / 1e9).toFixed(2)}B` : 
+                              value >= 1e6 ? `$${(value / 1e6).toFixed(2)}M` : 
+                              value >= 1e3 ? `$${(value / 1e3).toFixed(2)}K` : 
+                              value.toFixed(2)) : value}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Valuation Ratios */}
+                {data.rawData.fundamentalData.valuationRatios && (
+                  <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-6">
+                    <h4 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                      <PieChart className="h-5 w-5 mr-2 text-blue-600" />
+                      Valuation Ratios
+                    </h4>
+                    <div className="space-y-3">
+                      {Object.entries(data.rawData.fundamentalData.valuationRatios).map(([key, value]) => (
+                        <div key={key} className="flex justify-between items-center p-3 bg-white rounded-lg shadow-sm">
+                          <span className="font-medium text-gray-700 text-sm">
+                            {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                          </span>
+                          <span className="text-gray-900 font-semibold">
+                            {typeof value === 'number' ? value.toFixed(2) : value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Financial Statements Summary */}
+              {data.rawData.fundamentalData.financialStatements && (
+                <div className="bg-gradient-to-r from-gray-50 to-indigo-50 rounded-xl p-6">
+                  <h4 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                    <LineChart className="h-5 w-5 mr-2 text-indigo-600" />
+                    Financial Performance Summary
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {Object.entries(data.rawData.fundamentalData.financialStatements).map(([statement, data]) => (
+                      <div key={statement} className="p-4 bg-white rounded-lg shadow-sm">
+                        <h5 className="font-semibold text-gray-800 mb-3">
+                          {statement.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                        </h5>
+                        <div className="space-y-2">
+                          {Object.entries(data).slice(0, 5).map(([key, value]) => (
+                            <div key={key} className="flex justify-between text-sm">
+                              <span className="text-gray-600">{key.replace(/([A-Z])/g, ' $1')}</span>
+                              <span className="font-medium text-gray-900">
+                                {typeof value === 'number' ? (value >= 1e9 ? `$${(value / 1e9).toFixed(2)}B` : 
+                                  value >= 1e6 ? `$${(value / 1e6).toFixed(2)}M` : 
+                                  value >= 1e3 ? `$${(value / 1e3).toFixed(2)}K` : 
+                                  value.toFixed(2)) : value}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Competitive Analysis Section */}
+      {data.rawData?.competitiveData && (
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+          <div 
+            className="p-6 bg-gradient-to-r from-orange-50 to-amber-100 border-b border-gray-200 cursor-pointer hover:bg-gradient-to-r hover:from-orange-100 hover:to-amber-200 transition-all duration-300"
+            onClick={() => toggleSection('competitive')}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="p-2 bg-orange-600 rounded-lg mr-3">
+                  <Target className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-800">Competitive Analysis</h3>
+              </div>
+              {expandedSections.competitive ? (
+                <ChevronUp className="h-5 w-5 text-gray-600" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-gray-600" />
+              )}
+            </div>
+          </div>
+          
+          {expandedSections.competitive && (
+            <div className="p-6 slide-up">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                {/* Market Position */}
+                {data.rawData.competitiveData.marketPosition && (
+                  <div className="bg-gradient-to-r from-gray-50 to-orange-50 rounded-xl p-6">
+                    <h4 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                      <Award className="h-5 w-5 mr-2 text-orange-600" />
+                      Market Position
+                    </h4>
+                    <div className="space-y-4">
+                      <div className="p-4 bg-white rounded-lg shadow-sm">
+                        <h5 className="font-semibold text-gray-800 mb-2">Market Share</h5>
+                        <p className="text-2xl font-bold text-gray-900">
+                          {data.rawData.competitiveData.marketPosition.marketShare || 'N/A'}
+                        </p>
+                      </div>
+                      <div className="p-4 bg-white rounded-lg shadow-sm">
+                        <h5 className="font-semibold text-gray-800 mb-2">Competitive Position</h5>
+                        <p className="text-lg font-semibold text-gray-900">
+                          {data.rawData.competitiveData.marketPosition.position || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Competitive Advantages */}
+                {data.rawData.competitiveData.competitiveAdvantages && (
+                  <div className="bg-gradient-to-r from-gray-50 to-green-50 rounded-xl p-6">
+                    <h4 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                      <Star className="h-5 w-5 mr-2 text-green-600" />
+                      Competitive Advantages
+                    </h4>
+                    <div className="space-y-3">
+                      {data.rawData.competitiveData.competitiveAdvantages.map((advantage, index) => (
+                        <div key={index} className="flex items-start p-3 bg-white rounded-lg shadow-sm">
+                          <Star className="h-4 w-4 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
+                          <span className="text-sm text-gray-700">{advantage}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Competitors Analysis */}
+              {data.rawData.competitiveData.competitors && (
+                <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-6">
+                  <h4 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                    <Users className="h-5 w-5 mr-2 text-blue-600" />
+                    Key Competitors
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {data.rawData.competitiveData.competitors.map((competitor, index) => (
+                      <div key={index} className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300">
+                        <h5 className="font-semibold text-gray-800 mb-2">{competitor.name}</h5>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Market Cap:</span>
+                            <span className="font-medium text-gray-900">{formatCurrency(competitor.marketCap)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">P/E Ratio:</span>
+                            <span className="font-medium text-gray-900">{competitor.peRatio?.toFixed(2) || 'N/A'}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Revenue:</span>
+                            <span className="font-medium text-gray-900">{formatCurrency(competitor.revenue)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* SWOT Analysis */}
+              {data.rawData.competitiveData.swotAnalysis && (
+                <div className="bg-gradient-to-r from-gray-50 to-purple-50 rounded-xl p-6">
+                  <h4 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                    <Target className="h-5 w-5 mr-2 text-purple-600" />
+                    SWOT Analysis
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(data.rawData.competitiveData.swotAnalysis).map(([category, items]) => (
+                      <div key={category} className="p-4 bg-white rounded-lg shadow-sm">
+                        <h5 className="font-semibold text-gray-800 mb-3 capitalize">{category}</h5>
+                        <div className="space-y-2">
+                          {items.map((item, index) => (
+                            <div key={index} className="flex items-start text-sm">
+                              <div className={`w-2 h-2 rounded-full mt-2 mr-3 flex-shrink-0 ${
+                                category === 'strengths' ? 'bg-green-500' :
+                                category === 'weaknesses' ? 'bg-red-500' :
+                                category === 'opportunities' ? 'bg-blue-500' :
+                                'bg-purple-500'
+                              }`} />
+                              <span className="text-gray-700">{item}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Risk Assessment Section */}
       {analysis?.riskAssessment && (
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
@@ -431,6 +1478,74 @@ const AnalysisResults = ({ data }) => {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* AI-Generated Fundamental Analysis Summary */}
+      {analysis.fundamentalSummary && (
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+          <div 
+            className="p-6 bg-gradient-to-r from-purple-50 to-indigo-100 border-b border-gray-200 cursor-pointer hover:bg-gradient-to-r hover:from-purple-100 hover:to-indigo-200 transition-all duration-300"
+            onClick={() => toggleSection('fundamental')}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="p-2 bg-purple-600 rounded-lg mr-3">
+                  <Sparkles className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-800">AI-Generated Fundamental Analysis</h3>
+              </div>
+              {expandedSections.fundamental ? (
+                <ChevronUp className="h-5 w-5 text-gray-600" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-gray-600" />
+              )}
+            </div>
+          </div>
+          
+          {expandedSections.fundamental && (
+            <div className="p-6 slide-up">
+              <div className="prose prose-lg max-w-none">
+                <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                  {analysis.fundamentalSummary}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* AI-Generated Competitive Analysis Summary */}
+      {analysis.competitiveSummary && (
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+          <div 
+            className="p-6 bg-gradient-to-r from-amber-50 to-orange-100 border-b border-gray-200 cursor-pointer hover:bg-gradient-to-r hover:from-amber-100 hover:to-orange-200 transition-all duration-300"
+            onClick={() => toggleSection('competitive')}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="p-2 bg-amber-600 rounded-lg mr-3">
+                  <Sparkles className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-800">AI-Generated Competitive Analysis</h3>
+              </div>
+              {expandedSections.competitive ? (
+                <ChevronUp className="h-5 w-5 text-gray-600" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-gray-600" />
+              )}
+            </div>
+          </div>
+          
+          {expandedSections.competitive && (
+            <div className="p-6 slide-up">
+              <div className="prose prose-lg max-w-none">
+                <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                  {analysis.competitiveSummary}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

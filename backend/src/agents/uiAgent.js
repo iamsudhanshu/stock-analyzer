@@ -177,6 +177,18 @@ class UIAgent extends BaseAgent {
             timestamp: new Date().toISOString(),
             payload: analysisPayload
           }).then(() => console.log('✅ [UIAgent] Published to news queue')),
+          redisClient.publish(config.queues.fundamentalData, {
+            requestId,
+            agentType: 'UIAgent',
+            timestamp: new Date().toISOString(),
+            payload: analysisPayload
+          }).then(() => console.log('✅ [UIAgent] Published to fundamentalData queue')),
+          redisClient.publish(config.queues.competitiveData, {
+            requestId,
+            agentType: 'UIAgent',
+            timestamp: new Date().toISOString(),
+            payload: analysisPayload
+          }).then(() => console.log('✅ [UIAgent] Published to competitiveData queue')),
           redisClient.publish(config.queues.analysis, {
             requestId,
             agentType: 'UIAgent',
@@ -270,7 +282,7 @@ class UIAgent extends BaseAgent {
     // List all agents status
     this.app.get('/api/agents/status', async (req, res) => {
       try {
-        const agents = ['StockDataAgent', 'NewsSentimentAgent', 'AnalysisAgent'];
+        const agents = ['StockDataAgent', 'NewsSentimentAgent', 'FundamentalDataAgent', 'CompetitiveAgent', 'AnalysisAgent'];
         const status = {};
         
         for (const agent of agents) {

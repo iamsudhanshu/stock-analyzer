@@ -12,7 +12,7 @@ class AnalysisAgent extends BaseAgent {
     );
     
     this.pendingAnalyses = new Map();
-    this.dataCollectionTimeout = 120000; // 2 minutes timeout (increased from 30 seconds)
+    this.dataCollectionTimeout = 300000; // 5 minutes timeout (extended for comprehensive LLM analysis)
     this.ollama = new OllamaService();
     this.ollamaEnabled = false;
     
@@ -22,12 +22,17 @@ class AnalysisAgent extends BaseAgent {
 
   async initializeOllama() {
     try {
+      console.log('🔍 [AnalysisAgent] Checking Ollama availability...');
       this.ollamaEnabled = await this.ollama.isAvailable();
+      
       if (this.ollamaEnabled) {
+        console.log('✅ [AnalysisAgent] Ollama service available - LLM-enhanced analysis enabled');
         logger.info('Ollama service available - LLM-enhanced analysis enabled');
         
-        // Optionally pull a recommended model if not available
+        // Check available models
         const models = await this.ollama.getModels();
+        console.log('📋 [AnalysisAgent] Available models:', models.map(m => m.name));
+        
         const hasRecommendedModel = models.some(model => 
           model.name.includes('llama3.1') || 
           model.name.includes('mistral') ||
@@ -35,15 +40,37 @@ class AnalysisAgent extends BaseAgent {
         );
         
         if (!hasRecommendedModel) {
+          console.log('📥 [AnalysisAgent] Pulling recommended model for analysis...');
           logger.info('Pulling recommended model for analysis...');
-          await this.ollama.pullModel('llama3.1:8b').catch(err => {
+          try {
+            await this.ollama.pullModel('llama3.1:8b');
+            console.log('✅ [AnalysisAgent] Model pull completed successfully');
+          } catch (err) {
+            console.warn('⚠️ [AnalysisAgent] Failed to pull model:', err.message);
             logger.warn('Failed to pull model:', err.message);
-          });
+            // Continue with existing models
+          }
+        } else {
+          console.log('✅ [AnalysisAgent] Recommended model already available');
         }
+        
+        // Test a simple generation to ensure everything is working
+        try {
+          const testResponse = await this.ollama.generate('Hello', { maxTokens: 10 });
+          console.log('✅ [AnalysisAgent] LLM test successful');
+          logger.info('LLM test successful');
+        } catch (testError) {
+          console.error('❌ [AnalysisAgent] LLM test failed:', testError.message);
+          logger.error('LLM test failed:', testError.message);
+          this.ollamaEnabled = false;
+        }
+        
       } else {
+        console.warn('⚠️ [AnalysisAgent] Ollama not available - using traditional analysis methods');
         logger.warn('Ollama not available - using traditional analysis methods');
       }
     } catch (error) {
+      console.error('❌ [AnalysisAgent] Error initializing Ollama:', error.message);
       logger.error('Error initializing Ollama:', error.message);
       this.ollamaEnabled = false;
     }
@@ -83,7 +110,7 @@ class AnalysisAgent extends BaseAgent {
             result
           });
         }
-      } else if (status === 'success' && (agentType === 'StockDataAgent' || agentType === 'NewsSentimentAgent')) {
+      } else if (status === 'success' && (agentType === 'StockDataAgent' || agentType === 'NewsSentimentAgent' || agentType === 'FundamentalDataAgent' || agentType === 'CompetitiveAgent')) {
         // This is data from another agent
         console.log('📊 [AnalysisAgent] Processing data from agent:', agentType);
         result = await this.handleAgentData(message, requestId);
@@ -144,12 +171,20 @@ class AnalysisAgent extends BaseAgent {
       throw new Error('Symbol is required');
     }
 
+    // Always expect all four agents
+    const expectedAgents = [
+      'StockDataAgent',
+      'NewsSentimentAgent',
+      'FundamentalDataAgent',
+      'CompetitiveAgent'
+    ];
+
     // Initialize analysis tracking
     const analysisData = {
       symbol: symbol.toUpperCase(),
       startTime: Date.now(),
       receivedData: {},
-      expectedAgents: ['StockDataAgent', 'NewsSentimentAgent'],
+      expectedAgents,
       completed: false
     };
     
@@ -327,56 +362,401 @@ class AnalysisAgent extends BaseAgent {
       // Extract data from different agents
       const stockData = receivedData.StockDataAgent || {};
       const newsData = receivedData.NewsSentimentAgent || {};
+      const fundamentalData = receivedData.FundamentalDataAgent || {};
+      const competitiveData = receivedData.CompetitiveAgent || {};
       const economicData = receivedData.EconomicIndicatorAgent || {};
 
-      // Calculate composite scores (traditional method)
-      const scores = this.calculateCompositeScores(stockData, newsData, economicData);
-      
-      // Generate recommendations - enhanced with LLM if available
-      const recommendations = await this.generateRecommendations(scores, stockData, newsData, economicData);
-      
-      // Assess risks - enhanced with LLM insights
-      const riskAssessment = await this.assessRisks(stockData, newsData, economicData);
-      
-      // Generate insights and explanations - LLM-powered when available
-      const insights = await this.generateInsights(stockData, newsData, economicData, scores);
+      console.log('🧠 [AnalysisAgent] Starting LLM-powered analysis for', symbol);
 
-      // LLM-powered market context analysis
+      // **PRIORITIZE LLM ANALYSIS** - Try LLM first, fallback to traditional only if LLM completely fails
+      let recommendations = null;
+      let insights = null;
+      let riskAssessment = null;
       let marketContext = null;
+      let fundamentalSummary = null;
+      let competitiveSummary = null;
+      let isLLMPowered = false;
+      let llmFailureReason = null;
+
       if (this.ollamaEnabled) {
         try {
-          marketContext = await this.generateMarketContext(symbol, scores, stockData, newsData, economicData);
+          console.log('🚀 [AnalysisAgent] Generating comprehensive LLM analysis...');
+          // Generate ALL analysis components using LLM with rich context
+          const llmAnalysis = await this.generateComprehensiveLLMAnalysis(symbol, stockData, newsData, fundamentalData, competitiveData, economicData);
+          if (llmAnalysis) {
+            recommendations = llmAnalysis.recommendations;
+            insights = llmAnalysis.insights;
+            riskAssessment = llmAnalysis.riskAssessment;
+            marketContext = llmAnalysis.marketContext;
+            fundamentalSummary = llmAnalysis.fundamentalSummary || this.summarizeFundamentals(fundamentalData);
+            competitiveSummary = llmAnalysis.competitiveSummary || this.summarizeCompetitive(competitiveData);
+            isLLMPowered = true;
+            console.log('✅ [AnalysisAgent] LLM analysis completed successfully');
+          }
         } catch (error) {
-          logger.warn('LLM market context generation failed:', error.message);
+          console.error('❌ [AnalysisAgent] LLM analysis failed:', error.message);
+          llmFailureReason = error.message;
         }
+      } else {
+        llmFailureReason = 'Ollama LLM service not available';
+        console.warn('⚠️ [AnalysisAgent] Ollama service not available');
+      }
+
+      // Only use traditional analysis as fallback if LLM completely failed
+      if (!isLLMPowered) {
+        console.log('⚠️ [AnalysisAgent] Falling back to traditional analysis');
+        // Fallback: generate summaries from agent data
+        recommendations = this.generateTraditionalRecommendations(stockData, newsData, fundamentalData, competitiveData, economicData);
+        insights = this.summarizeInsights(stockData, newsData, fundamentalData, competitiveData, economicData);
+        riskAssessment = this.summarizeRisks(stockData, newsData, fundamentalData, competitiveData, economicData);
+        marketContext = this.summarizeMarketContext(stockData, newsData, fundamentalData, competitiveData, economicData);
+        fundamentalSummary = this.summarizeFundamentals(fundamentalData);
+        competitiveSummary = this.summarizeCompetitive(competitiveData);
       }
 
       return {
         symbol,
         analysis: {
-          scores,
           recommendations,
-          riskAssessment,
           insights,
+          riskAssessment,
           marketContext,
+          fundamentalSummary,
+          competitiveSummary,
           dataQuality: this.assessDataQuality(receivedData),
           generatedAt: new Date().toISOString(),
-          llmEnhanced: this.ollamaEnabled
+          llmEnhanced: isLLMPowered,
+          llmFailureReason: llmFailureReason,
+          analysisType: isLLMPowered ? 'LLM-Powered AI Analysis' : 'Traditional Mathematical Analysis',
+          analysisWarning: isLLMPowered ? null : {
+            title: '⚠️ AI Analysis Unavailable',
+            message: `Advanced AI analysis could not be generated due to: ${llmFailureReason}. This report uses traditional mathematical models which may provide less specific and contextual insights.`
+          },
+          agentDataStatus: {
+            StockDataAgent: {
+              status: receivedData.StockDataAgent ? 'success' : 'missing',
+              hasData: !!receivedData.StockDataAgent,
+              dataKeys: receivedData.StockDataAgent ? Object.keys(receivedData.StockDataAgent) : [],
+              timestamp: receivedData.StockDataAgent?.lastUpdated
+            },
+            NewsSentimentAgent: {
+              status: receivedData.NewsSentimentAgent ? 'success' : 'missing',
+              hasData: !!receivedData.NewsSentimentAgent,
+              dataKeys: receivedData.NewsSentimentAgent ? Object.keys(receivedData.NewsSentimentAgent) : [],
+              timestamp: receivedData.NewsSentimentAgent?.lastUpdated
+            },
+            FundamentalDataAgent: {
+              status: receivedData.FundamentalDataAgent ? 'success' : 'missing',
+              hasData: !!receivedData.FundamentalDataAgent,
+              dataKeys: receivedData.FundamentalDataAgent ? Object.keys(receivedData.FundamentalDataAgent) : [],
+              timestamp: receivedData.FundamentalDataAgent?.lastUpdated
+            },
+            CompetitiveAgent: {
+              status: receivedData.CompetitiveAgent ? 'success' : 'missing',
+              hasData: !!receivedData.CompetitiveAgent,
+              dataKeys: receivedData.CompetitiveAgent ? Object.keys(receivedData.CompetitiveAgent) : [],
+              timestamp: receivedData.CompetitiveAgent?.lastUpdated
+            }
+          }
         },
         rawData: {
           stockData,
           newsData,
+          fundamentalData,
+          competitiveData,
           economicData
         }
       };
-
     } catch (error) {
-      logger.error('Error generating investment analysis:', error);
+      console.error('💥 [AnalysisAgent] Error generating investment analysis:', error);
       throw error;
     }
   }
 
-  calculateCompositeScores(stockData, newsData, economicData) {
+  // --- Helper summary methods for fallback reporting ---
+  summarizeFundamentals(fundamentalData) {
+    if (!fundamentalData.fundamentals) return '**Fundamental Analysis**\n\nNo fundamental data available.';
+    const m = fundamentalData.fundamentals.metrics || {};
+    const health = fundamentalData.fundamentals.financialHealth || {};
+    const valuation = fundamentalData.fundamentals.valuation || {};
+    const highlights = (fundamentalData.fundamentals.keyHighlights || []).map(h => `- ${h}`).join('\n');
+    return `**Fundamental Analysis**\n\n- Market Cap: $${m.marketCap?.toLocaleString() || 'N/A'}\n- P/E Ratio: ${m.peRatio || 'N/A'}\n- PEG Ratio: ${m.pegRatio || 'N/A'}\n- EPS: ${m.eps || 'N/A'}\n- Dividend Yield: ${m.dividendYield || 'N/A'}%\n- Debt/Equity: ${m.debtToEquity || 'N/A'}\n- ROE: ${m.roe || 'N/A'}%\n- Revenue Growth: ${m.revenueGrowth || 'N/A'}%\n- Financial Health: ${health.rating || 'N/A'} (Score: ${health.score || 'N/A'})\n- Valuation: ${valuation.rating || 'N/A'}\n${highlights ? `\n**Highlights:**\n${highlights}` : ''}`;
+  }
+
+  summarizeCompetitive(competitiveData) {
+    if (!competitiveData.competitive) return '**Competitive Analysis**\n\nNo competitive data available.';
+    const c = competitiveData.competitive;
+    const peers = (c.peers || []).map(p => `- ${p}`).join('\n');
+    const advantages = (c.competitiveAdvantages || []).map(a => `- ${a.advantage}`).join('\n');
+    return `**Competitive Analysis**\n\n- Peers:\n${peers || 'N/A'}\n- Market Position: ${c.marketPosition?.industryRank ? `Rank ${c.marketPosition.industryRank}` : 'N/A'}\n- Market Share: ${c.marketPosition?.marketShare || 'N/A'}%\n- Competitive Advantages:\n${advantages || 'N/A'}\n- SWOT: ${c.swotAnalysis ? JSON.stringify(c.swotAnalysis, null, 2) : 'N/A'}\n- Competitive Score: ${c.competitiveScore || 'N/A'}`;
+  }
+
+  summarizeRisks(stockData, newsData, fundamentalData, competitiveData, economicData) {
+    let risks = [];
+    if (fundamentalData.fundamentals && fundamentalData.fundamentals.financialHealth?.rating === 'Poor') {
+      risks.push('Financial health is poor.');
+    }
+    if (competitiveData.competitive && competitiveData.competitive.marketPosition?.competitiveIntensity === 'high') {
+      risks.push('High competitive intensity in the sector.');
+    }
+    if (stockData.technicalIndicators && stockData.technicalIndicators.rsi > 70) {
+      risks.push('Stock is overbought (RSI > 70).');
+    }
+    if (newsData.sentimentAnalysis && newsData.sentimentAnalysis.overallScore < 40) {
+      risks.push('Recent news sentiment is negative.');
+    }
+    if (economicData.regimeAnalysis && economicData.regimeAnalysis.regime === 'contractionary') {
+      risks.push('Macroeconomic regime is contractionary.');
+    }
+    return `**Risk Assessment**\n\n${risks.length ? risks.map(r => `- ${r}`).join('\n') : 'No major risks identified.'}`;
+  }
+
+  summarizeInsights(stockData, newsData, fundamentalData, competitiveData, economicData) {
+    let insights = [];
+    if (fundamentalData.fundamentals && fundamentalData.fundamentals.financialHealth?.rating === 'Excellent') {
+      insights.push('Company has excellent financial health.');
+    }
+    if (competitiveData.competitive && competitiveData.competitive.marketPosition?.marketLeader) {
+      insights.push('Company is a market leader in its sector.');
+    }
+    if (newsData.sentimentAnalysis && newsData.sentimentAnalysis.overallScore > 60) {
+      insights.push('Recent news sentiment is positive.');
+    }
+    if (stockData.technicalIndicators && stockData.technicalIndicators.rsi < 30) {
+      insights.push('Stock is oversold (RSI < 30), possible rebound.');
+    }
+    if (economicData.regimeAnalysis && economicData.regimeAnalysis.regime === 'expansionary') {
+      insights.push('Macroeconomic regime is expansionary.');
+    }
+    return `**Additional Insights**\n\n${insights.length ? insights.map(i => `- ${i}`).join('\n') : 'No additional insights.'}`;
+  }
+
+  summarizeMarketContext(stockData, newsData, fundamentalData, competitiveData, economicData) {
+    return `**Market Context**\n\nTraditional analysis based on mathematical models and available agent data.\n`;
+  }
+
+  generateTraditionalRecommendations(stockData, newsData, fundamentalData, competitiveData, economicData) {
+    if (fundamentalData.fundamentals && fundamentalData.fundamentals.financialHealth?.rating === 'Excellent') {
+      return 'Strong Buy based on excellent fundamentals.';
+    }
+    if (competitiveData.competitive && competitiveData.competitive.marketPosition?.marketLeader) {
+      return 'Buy - Company is a market leader.';
+    }
+    if (newsData.sentimentAnalysis && newsData.sentimentAnalysis.overallScore < 40) {
+      return 'Sell - Negative news sentiment.';
+    }
+    return 'Hold - No strong signals.';
+  }
+
+  // **NEW COMPREHENSIVE LLM ANALYSIS METHOD**
+  async generateComprehensiveLLMAnalysis(symbol, stockData, newsData, fundamentalData, competitiveData, economicData) {
+    try {
+      // Prepare rich, contextual data for LLM
+      const contextualData = this.prepareContextualData(symbol, stockData, newsData, fundamentalData, competitiveData, economicData);
+      
+      // Generate comprehensive analysis with enhanced prompts
+      const analysisPromise = this.ollama.generateInvestmentRecommendation({
+        symbol,
+        technical: {
+          score: contextualData.technicalScore,
+          indicators: stockData.technicalIndicators,
+          trend: contextualData.priceTrend,
+          currentPrice: stockData.currentPrice,
+          supportResistance: contextualData.supportResistance,
+          volumeAnalysis: stockData.volumeAnalysis,
+          patternAnalysis: stockData.patternAnalysis
+        },
+        sentiment: {
+          score: contextualData.sentimentScore,
+          newsSentiment: newsData.sentimentAnalysis?.sentimentScore,
+          socialSentiment: newsData.socialSentiment?.score,
+          summary: newsData.sentimentAnalysis?.summary,
+          keyThemes: newsData.sentimentAnalysis?.keyThemes || [],
+          recentNews: newsData.articles?.slice(0, 5) || [],
+          marketImpact: newsData.sentimentAnalysis?.marketImpact
+        },
+        overall: {
+          score: contextualData.overallScore,
+          analysis: contextualData.marketSummary
+        },
+        marketContext: {
+          currentDate: new Date().toISOString(),
+          marketConditions: contextualData.marketConditions,
+          sectorContext: contextualData.sectorContext,
+          timeOfAnalysis: contextualData.timeContext
+        }
+      });
+
+      // Set a longer timeout specifically for comprehensive analysis
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('LLM analysis timeout')), 240000); // 4 minutes for LLM analysis
+      });
+
+      const llmRecommendations = await Promise.race([analysisPromise, timeoutPromise]);
+
+      console.log('📊 [AnalysisAgent] LLM recommendations received, generating insights and risk analysis...');
+
+      // Generate insights and risk assessment in parallel
+      const [insights, riskAssessment] = await Promise.all([
+        this.generateEnhancedLLMInsights(symbol, stockData, newsData, contextualData),
+        this.generateEnhancedLLMRiskAnalysis(symbol, stockData, newsData, contextualData)
+      ]);
+
+      console.log('🧠 [AnalysisAgent] Insights and risk analysis complete, generating market context...');
+
+      // Generate market context
+      const marketContext = await this.generateEnhancedMarketContext(symbol, stockData, newsData, contextualData);
+
+      console.log('✅ [AnalysisAgent] All LLM analysis components completed successfully');
+
+      return {
+        recommendations: llmRecommendations,
+        insights,
+        riskAssessment,
+        marketContext
+      };
+
+    } catch (error) {
+      console.error('💥 [AnalysisAgent] Comprehensive LLM analysis failed:', error);
+      throw error;
+    }
+  }
+
+  // **PREPARE RICH CONTEXTUAL DATA**
+  prepareContextualData(symbol, stockData, newsData, fundamentalData, competitiveData, economicData) {
+    const currentPrice = stockData.currentPrice?.price || 0;
+    const priceChange = stockData.currentPrice?.changePercent || 0;
+    
+    // Calculate technical score with more nuance
+    let technicalScore = 50;
+    if (stockData.technicalIndicators) {
+      const indicators = stockData.technicalIndicators;
+      
+      // RSI analysis
+      if (indicators.rsi && indicators.rsi.length > 0) {
+        const rsi = indicators.rsi[indicators.rsi.length - 1];
+        if (rsi < 30) technicalScore += 20; // Oversold
+        else if (rsi > 70) technicalScore -= 20; // Overbought
+        else if (rsi >= 40 && rsi <= 60) technicalScore += 10; // Neutral zone
+      }
+      
+      // Moving averages
+      if (indicators.sma?.sma20 && indicators.sma.sma20.length > 0) {
+        const sma20 = indicators.sma.sma20[indicators.sma.sma20.length - 1];
+        if (currentPrice > sma20) technicalScore += 15;
+        else technicalScore -= 15;
+      }
+      
+      // Volume confirmation
+      if (stockData.volumeAnalysis?.volumeRatio > 1.5) {
+        technicalScore += 10; // High volume confirms trend
+      }
+    }
+    
+    // Calculate sentiment score
+    let sentimentScore = 50;
+    if (newsData.sentimentAnalysis?.sentimentScore) {
+      sentimentScore = 50 + (newsData.sentimentAnalysis.sentimentScore * 50);
+    }
+    
+    // Overall score
+    const overallScore = (technicalScore * 0.6 + sentimentScore * 0.4);
+    
+    // Determine price trend with more detail
+    let priceTrend = 'neutral';
+    if (priceChange > 5) priceTrend = 'strongly bullish';
+    else if (priceChange > 2) priceTrend = 'bullish';
+    else if (priceChange > 0.5) priceTrend = 'slightly bullish';
+    else if (priceChange < -5) priceTrend = 'strongly bearish';
+    else if (priceChange < -2) priceTrend = 'bearish';
+    else if (priceChange < -0.5) priceTrend = 'slightly bearish';
+    
+    // Market conditions based on current data
+    const now = new Date();
+    const marketHours = now.getHours();
+    const isMarketHours = marketHours >= 9 && marketHours <= 16;
+    const dayOfWeek = now.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    
+    let marketConditions = 'Regular trading';
+    if (isWeekend) marketConditions = 'Weekend - markets closed';
+    else if (!isMarketHours) marketConditions = 'After-hours trading';
+    
+    // Time context
+    const timeContext = `Analysis generated on ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}`;
+    
+    return {
+      technicalScore: Math.max(0, Math.min(100, technicalScore)),
+      sentimentScore: Math.max(0, Math.min(100, sentimentScore)),
+      overallScore: Math.max(0, Math.min(100, overallScore)),
+      priceTrend,
+      marketConditions,
+      timeContext,
+      supportResistance: this.calculateSupportResistance(stockData),
+      sectorContext: this.inferSectorContext(symbol),
+      marketSummary: `${symbol} showing ${priceTrend} trend with ${technicalScore.toFixed(0)}% technical strength and ${sentimentScore.toFixed(0)}% sentiment score`
+    };
+  }
+
+  // **ENHANCED MARKET CONTEXT WITH SPECIFIC DETAILS**
+  async generateEnhancedMarketContext(symbol, stockData, newsData, contextualData) {
+    try {
+      const recentNews = newsData.articles?.slice(0, 3).map(article => ({
+        title: article.title,
+        sentiment: article.sentiment || 'neutral',
+        date: article.publishedAt
+      })) || [];
+
+      const prompt = `As a senior equity research analyst, provide a comprehensive market context analysis for ${symbol} stock:
+
+**CURRENT MARKET POSITION:**
+- Stock: ${symbol}
+- Current Price: $${stockData.currentPrice?.price || 'N/A'}
+- Today's Change: ${stockData.currentPrice?.changePercent || 'N/A'}%
+- Price Trend: ${contextualData.priceTrend}
+- Trading Volume Ratio: ${stockData.volumeAnalysis?.volumeRatio || 'N/A'}x normal
+
+**TECHNICAL INDICATORS:**
+- Technical Strength: ${contextualData.technicalScore}/100
+- RSI: ${this.getLatestIndicator(stockData.technicalIndicators?.rsi)}
+- 20-day SMA: $${this.getLatestIndicator(stockData.technicalIndicators?.sma?.sma20)}
+- Support/Resistance: ${JSON.stringify(contextualData.supportResistance)}
+
+**RECENT NEWS & SENTIMENT:**
+- Overall Sentiment Score: ${contextualData.sentimentScore}/100
+- Key Headlines:
+${recentNews.map(news => `  • ${news.title} (${news.sentiment})`).join('\n')}
+
+**MARKET CONDITIONS:**
+- Analysis Time: ${contextualData.timeContext}
+- Market Status: ${contextualData.marketConditions}
+- Sector Context: ${contextualData.sectorContext}
+
+**ANALYSIS REQUEST:**
+Provide a detailed, stock-specific market context that explains:
+
+1. **Current Positioning**: Where does ${symbol} stand in the current market environment?
+2. **Key Drivers**: What specific factors are currently influencing ${symbol}'s price action?
+3. **Sector Dynamics**: How is ${symbol} performing relative to its sector and broader market?
+4. **News Impact**: How are recent news events specifically affecting ${symbol}?
+5. **Technical Setup**: What does the technical picture tell us about ${symbol}'s near-term prospects?
+6. **Unique Factors**: What makes ${symbol} unique in the current market context?
+
+**FORMAT:** Provide a detailed narrative (200-300 words) that is highly specific to ${symbol} and the current market conditions. Avoid generic statements - focus on what makes this analysis unique to ${symbol} at this specific time.`;
+
+      const response = await this.ollama.generate(prompt, {
+        temperature: 0.3,
+        maxTokens: 2000
+      });
+
+      return response.text;
+    } catch (error) {
+      console.error('Enhanced market context generation failed:', error);
+      return `Unable to generate enhanced market context for ${symbol}`;
+    }
+  }
+
+  calculateCompositeScores(stockData, newsData, fundamentalData, competitiveData, economicData) {
     const scores = {
       technical: 0,
       sentiment: 0,
@@ -555,7 +935,7 @@ class AnalysisAgent extends BaseAgent {
     return Math.max(0, Math.min(100, score));
   }
 
-  async generateRecommendations(scores, stockData, newsData, economicData) {
+  async generateRecommendations(scores, stockData, newsData, fundamentalData, competitiveData, economicData) {
     const recommendations = {};
 
     // Generate traditional recommendations first
@@ -566,6 +946,8 @@ class AnalysisAgent extends BaseAgent {
         scores,
         stockData,
         newsData,
+        fundamentalData,
+        competitiveData,
         economicData
       );
     });
@@ -621,12 +1003,15 @@ class AnalysisAgent extends BaseAgent {
     return recommendations;
   }
 
-  generateHorizonRecommendation(horizon, details, scores, stockData, newsData, economicData) {
+  generateHorizonRecommendation(horizon, details, scores, stockData, newsData, fundamentalData, competitiveData, economicData) {
     let recommendation = 'HOLD';
     let confidence = 50;
     let reasoning = [];
     let targetPrice = null;
     let stopLoss = null;
+    let catalysts = [];
+    let risks = [];
+    let actionItems = [];
 
     try {
       const currentPrice = stockData.currentPrice?.price || 0;
@@ -638,72 +1023,158 @@ class AnalysisAgent extends BaseAgent {
         case 'shortTerm':
           // More sensitive to technical and sentiment
           thresholdAdjustment = scores.technical * 0.6 + scores.sentiment * 0.4;
+          catalysts = ['Technical breakout signals', 'Short-term news flow', 'Volume momentum'];
+          risks = ['Market volatility', 'Technical reversal', 'Sentiment shift'];
           break;
         case 'midTerm':
           // Balanced approach
           thresholdAdjustment = scores.overall;
+          catalysts = ['Quarterly earnings', 'Sector trends', 'Market rotation'];
+          risks = ['Economic uncertainty', 'Sector rotation', 'Competition'];
           break;
         case 'longTerm':
           // More weight on technical fundamentals since economic data is no longer available
           thresholdAdjustment = scores.technical * 0.7 + scores.sentiment * 0.3;
+          catalysts = ['Industry growth trends', 'Market expansion', 'Competitive advantages'];
+          risks = ['Structural industry changes', 'Regulatory risks', 'Long-term competition'];
           break;
       }
 
       confidence = Math.max(config.analysis.confidenceThreshold * 100, Math.abs(thresholdAdjustment - 50) * 2);
 
-      // Generate recommendation
-      if (thresholdAdjustment >= 70) {
+      // Generate comprehensive recommendation with detailed analysis
+      if (thresholdAdjustment >= 75) {
         recommendation = 'STRONG_BUY';
-        reasoning.push('Multiple positive indicators align');
-        targetPrice = currentPrice * 1.15;
-        stopLoss = currentPrice * 0.92;
-      } else if (thresholdAdjustment >= 60) {
+        reasoning.push('Exceptional alignment of multiple positive indicators');
+        reasoning.push('Technical momentum strongly bullish with confirming volume');
+        reasoning.push('Sentiment analysis shows overwhelming positive bias');
+        targetPrice = currentPrice * (horizon === 'shortTerm' ? 1.12 : horizon === 'midTerm' ? 1.20 : 1.35);
+        stopLoss = currentPrice * 0.93;
+        actionItems = [
+          'Establish full position immediately',
+          'Monitor for profit-taking opportunities',
+          'Consider scaling in on any weakness'
+        ];
+      } else if (thresholdAdjustment >= 65) {
         recommendation = 'BUY';
-        reasoning.push('Positive indicators outweigh negatives');
-        targetPrice = currentPrice * 1.08;
+        reasoning.push('Strong positive indicators outweigh negatives significantly');
+        reasoning.push('Technical setup shows bullish bias with good risk/reward');
+        reasoning.push('Market sentiment provides supportive backdrop');
+        targetPrice = currentPrice * (horizon === 'shortTerm' ? 1.08 : horizon === 'midTerm' ? 1.15 : 1.25);
         stopLoss = currentPrice * 0.95;
-      } else if (thresholdAdjustment >= 40) {
+        actionItems = [
+          'Build position gradually',
+          'Set profit targets at resistance levels',
+          'Monitor for confirmation signals'
+        ];
+      } else if (thresholdAdjustment >= 55) {
         recommendation = 'HOLD';
-        reasoning.push('Mixed signals suggest waiting');
+        reasoning.push('Positive factors slightly outweigh negatives');
+        reasoning.push('Mixed technical signals suggest cautious optimism');
+        reasoning.push('Sentiment neutral to slightly positive');
+        targetPrice = currentPrice * (horizon === 'shortTerm' ? 1.05 : horizon === 'midTerm' ? 1.10 : 1.15);
+        stopLoss = currentPrice * 0.92;
+        actionItems = [
+          'Maintain current position if held',
+          'Wait for clearer directional signals',
+          'Consider small additions on weakness'
+        ];
+      } else if (thresholdAdjustment >= 45) {
+        recommendation = 'HOLD';
+        reasoning.push('Neutral outlook with balanced positive and negative factors');
+        reasoning.push('Technical indicators show mixed signals requiring patience');
+        reasoning.push('Market sentiment lacks clear direction');
         targetPrice = currentPrice;
         stopLoss = currentPrice * 0.90;
-      } else if (thresholdAdjustment >= 30) {
+        actionItems = [
+          'Hold existing positions',
+          'Avoid new purchases until clarity emerges',
+          'Prepare for potential volatility'
+        ];
+      } else if (thresholdAdjustment >= 35) {
         recommendation = 'SELL';
-        reasoning.push('Negative indicators suggest reducing position');
-        targetPrice = currentPrice * 0.95;
+        reasoning.push('Negative indicators outweigh positives');
+        reasoning.push('Technical setup shows bearish bias');
+        reasoning.push('Sentiment deteriorating');
+        targetPrice = currentPrice * (horizon === 'shortTerm' ? 0.95 : horizon === 'midTerm' ? 0.90 : 0.85);
         stopLoss = currentPrice * 0.88;
+        actionItems = [
+          'Reduce position size gradually',
+          'Set stop-loss orders',
+          'Monitor for oversold bounce opportunities'
+        ];
       } else {
         recommendation = 'STRONG_SELL';
-        reasoning.push('Multiple negative indicators present');
-        targetPrice = currentPrice * 0.90;
+        reasoning.push('Multiple negative indicators present significant downside risk');
+        reasoning.push('Technical breakdown signals further decline');
+        reasoning.push('Negative sentiment likely to persist');
+        targetPrice = currentPrice * (horizon === 'shortTerm' ? 0.88 : horizon === 'midTerm' ? 0.80 : 0.70);
         stopLoss = currentPrice * 0.85;
+        actionItems = [
+          'Exit positions immediately',
+          'Consider short positions if appropriate',
+          'Wait for substantial decline before re-entry'
+        ];
       }
 
-      // Add specific reasoning based on scores
-      if (scores.technical > 70) reasoning.push('Strong technical indicators');
-      else if (scores.technical < 30) reasoning.push('Weak technical signals');
+      // Add specific reasoning based on scores with more detail
+      if (scores.technical > 70) {
+        reasoning.push(`Strong technical indicators (${Math.round(scores.technical)}/100) support bullish outlook`);
+      } else if (scores.technical < 30) {
+        reasoning.push(`Weak technical signals (${Math.round(scores.technical)}/100) suggest bearish pressure`);
+      } else {
+        reasoning.push(`Neutral technical indicators (${Math.round(scores.technical)}/100) provide limited directional bias`);
+      }
 
-      if (scores.sentiment > 70) reasoning.push('Positive market sentiment');
-      else if (scores.sentiment < 30) reasoning.push('Negative sentiment prevails');
+      if (scores.sentiment > 70) {
+        reasoning.push(`Positive market sentiment (${Math.round(scores.sentiment)}/100) provides strong support`);
+      } else if (scores.sentiment < 30) {
+        reasoning.push(`Negative sentiment (${Math.round(scores.sentiment)}/100) creates headwinds`);
+      } else {
+        reasoning.push(`Mixed sentiment (${Math.round(scores.sentiment)}/100) offers neutral backdrop`);
+      }
+
+      // Add horizon-specific insights
+      if (horizon === 'shortTerm') {
+        reasoning.push('Short-term focus on technical momentum and news-driven volatility');
+        if (stockData.volumeAnalysis?.volumeRatio > 1.5) {
+          reasoning.push('Above-average volume confirms price action');
+        }
+      } else if (horizon === 'midTerm') {
+        reasoning.push('Mid-term outlook considers earnings cycles and sector rotation');
+        reasoning.push('Position sizing should account for quarterly volatility');
+      } else {
+        reasoning.push('Long-term perspective focuses on sustained competitive advantages');
+        reasoning.push('Consider this as core portfolio holding based on analysis');
+      }
 
     } catch (error) {
       logger.error('Error generating recommendation:', error);
       recommendation = 'HOLD';
       confidence = 50;
-      reasoning = ['Analysis incomplete due to data limitations'];
+      reasoning = ['Analysis incomplete due to data limitations', 'Default conservative stance recommended'];
+      actionItems = ['Conduct additional research', 'Monitor key indicators', 'Reassess when more data available'];
     }
 
     return {
       action: recommendation,
       confidence: Math.round(Math.min(100, Math.max(0, confidence))),
-      reasoning,
+      reasoning: reasoning,
       targetPrice: targetPrice ? Math.round(targetPrice * 100) / 100 : null,
       stopLoss: stopLoss ? Math.round(stopLoss * 100) / 100 : null,
-      timeHorizon: details.period
+      timeHorizon: details.period,
+      catalysts: catalysts,
+      risks: risks,
+      actionItems: actionItems,
+      riskRewardRatio: targetPrice && stopLoss ? Math.round(((targetPrice - (stockData.currentPrice?.price || 0)) / ((stockData.currentPrice?.price || 0) - stopLoss)) * 100) / 100 : null,
+      positionSizing: confidence > 75 ? 'aggressive' : confidence > 60 ? 'normal' : 'conservative',
+      marketContext: `Analysis based on technical (${Math.round(scores.technical)}/100) and sentiment (${Math.round(scores.sentiment)}/100) indicators`,
+      analysisMethod: 'Traditional Mathematical Analysis',
+      limitationsWarning: '⚠️ This recommendation uses basic mathematical models. AI-powered analysis would provide more specific insights based on current market conditions, recent news, and contextual factors.'
     };
   }
 
-  async assessRisks(stockData, newsData, economicData) {
+  async assessRisks(stockData, newsData, fundamentalData, competitiveData, economicData) {
     const risks = {
       overall: 'MEDIUM',
       factors: [],
@@ -741,7 +1212,7 @@ class AnalysisAgent extends BaseAgent {
       // Enhance with LLM analysis if available
       if (this.ollamaEnabled) {
         try {
-          const llmRiskAnalysis = await this.generateLLMRiskAnalysis(stockData, newsData, economicData);
+          const llmRiskAnalysis = await this.generateLLMRiskAnalysis(stockData, newsData, fundamentalData, competitiveData, economicData);
           if (llmRiskAnalysis) {
             risks.llmInsights = llmRiskAnalysis;
             risks.detailedAnalysis = llmRiskAnalysis.analysis;
@@ -769,7 +1240,7 @@ class AnalysisAgent extends BaseAgent {
     return risks;
   }
 
-  async generateInsights(stockData, newsData, economicData, scores) {
+  async generateInsights(stockData, newsData, fundamentalData, competitiveData, economicData, scores) {
     const insights = {
       summary: '',
       keyPoints: [],
@@ -805,7 +1276,7 @@ class AnalysisAgent extends BaseAgent {
       // Enhance with LLM analysis if available
       if (this.ollamaEnabled) {
         try {
-          const llmInsights = await this.generateLLMInsights(stockData, newsData, economicData, scores);
+          const llmInsights = await this.generateLLMInsights(stockData, newsData, fundamentalData, competitiveData, economicData, scores);
           if (llmInsights) {
             insights.llmEnhancedInsights = llmInsights;
             
@@ -844,7 +1315,14 @@ class AnalysisAgent extends BaseAgent {
     };
 
     try {
-      const totalExpected = 2; // StockDataAgent, NewsSentimentAgent
+      // Expect all four agents
+      const expectedAgents = [
+        'StockDataAgent',
+        'NewsSentimentAgent',
+        'FundamentalDataAgent',
+        'CompetitiveAgent'
+      ];
+      const totalExpected = expectedAgents.length;
       const receivedCount = Object.keys(receivedData).length;
       quality.coverage = Math.round((receivedCount / totalExpected) * 100);
 
@@ -858,12 +1336,11 @@ class AnalysisAgent extends BaseAgent {
       }
 
       // Check for missing critical agents
-      if (!receivedData.StockDataAgent) {
-        quality.issues.push('Missing stock price data');
-      }
-      if (!receivedData.NewsSentimentAgent) {
-        quality.issues.push('Missing sentiment analysis');
-      }
+      expectedAgents.forEach(agent => {
+        if (!receivedData[agent]) {
+          quality.issues.push(`Missing data from ${agent}`);
+        }
+      });
 
     } catch (error) {
       logger.error('Error assessing data quality:', error);
@@ -876,7 +1353,7 @@ class AnalysisAgent extends BaseAgent {
 
   // ============ LLM-Enhanced Helper Methods ============
 
-  async generateMarketContext(symbol, scores, stockData, newsData, economicData) {
+  async generateMarketContext(symbol, scores, stockData, newsData, fundamentalData, competitiveData, economicData) {
     try {
       const prompt = `Provide comprehensive market context analysis for ${symbol}:
 
@@ -915,7 +1392,7 @@ Format as detailed narrative with clear insights.`;
     }
   }
 
-  async generateLLMRiskAnalysis(stockData, newsData, economicData) {
+  async generateLLMRiskAnalysis(stockData, newsData, fundamentalData, competitiveData, economicData) {
     try {
       const prompt = `Analyze investment risks based on the following data:
 
@@ -962,7 +1439,7 @@ Format as JSON:
     }
   }
 
-  async generateLLMInsights(stockData, newsData, economicData, scores) {
+  async generateLLMInsights(stockData, newsData, fundamentalData, competitiveData, economicData, scores) {
     try {
       const prompt = `Generate comprehensive investment insights based on the analysis:
 
@@ -1050,6 +1527,347 @@ Format as JSON:
     } catch (error) {
       return {};
     }
+  }
+
+  // **ENHANCED LLM INSIGHTS WITH SPECIFIC CONTEXT**
+  async generateEnhancedLLMInsights(symbol, stockData, newsData, fundamentalData, competitiveData, economicData, contextualData) {
+    try {
+      const recentArticles = newsData.articles?.slice(0, 5) || [];
+      const technicalIndicators = stockData.technicalIndicators || {};
+      const currentPrice = stockData.currentPrice?.price || 0;
+
+      const prompt = `As an expert equity analyst specializing in ${symbol}, provide unique investment insights based on current data:
+
+**STOCK-SPECIFIC CONTEXT:**
+- Company: ${symbol}
+- Current Price: $${currentPrice}
+- Price Trend: ${contextualData.priceTrend}
+- Market Cap Context: ${this.getMarketCapContext(stockData.marketCap)}
+- Sector: ${contextualData.sectorContext}
+
+**TECHNICAL PICTURE:**
+- RSI: ${this.getLatestIndicator(technicalIndicators.rsi)} (momentum indicator)
+- Price vs 20-day SMA: ${this.getPriceVsSMA(currentPrice, technicalIndicators.sma?.sma20)}
+- Volume Activity: ${stockData.volumeAnalysis?.volumeRatio || 1}x normal volume
+- Support: $${contextualData.supportResistance?.support || 'N/A'}
+- Resistance: $${contextualData.supportResistance?.resistance || 'N/A'}
+
+**NEWS & SENTIMENT ANALYSIS:**
+Recent Headlines for ${symbol}:
+${recentArticles.map((article, idx) => `${idx + 1}. "${article.title}" (${new Date(article.publishedAt).toLocaleDateString()})`).join('\n')}
+
+Sentiment Score: ${contextualData.sentimentScore}/100
+Key Themes: ${newsData.sentimentAnalysis?.keyThemes?.join(', ') || 'No specific themes identified'}
+
+**TIMING CONTEXT:**
+- Analysis Date: ${new Date().toLocaleDateString()}
+- Market Conditions: ${contextualData.marketConditions}
+- Time of Analysis: ${new Date().toLocaleTimeString()}
+
+**REQUIRED INSIGHTS:**
+Generate highly specific insights for ${symbol} that address:
+
+1. **Investment Thesis**: What is the unique investment case for ${symbol} right now?
+2. **Catalyst Analysis**: What specific events or factors could move ${symbol} in the next 3-6 months?
+3. **Competitive Position**: How does ${symbol} stand relative to its peers in current market conditions?
+4. **Risk-Reward Assessment**: What is the specific risk-reward profile for ${symbol} at current levels?
+5. **Timing Considerations**: Why is this particular moment significant for ${symbol} analysis?
+
+**CRITICAL REQUIREMENTS:**
+- Be specific to ${symbol} - avoid generic market commentary
+- Reference actual price levels, technical levels, and recent news
+- Explain WHY these insights apply specifically to ${symbol}
+- Consider the current date and market environment
+- Make insights actionable for investors
+
+Format as JSON:
+{
+    "summary": "Specific investment thesis for ${symbol} at current levels",
+    "keyPoints": [
+        "Insight 1 specific to ${symbol}",
+        "Insight 2 with actual data/levels",
+        "Insight 3 about timing and catalysts"
+    ],
+    "investmentThesis": "Core argument for/against investing in ${symbol} now",
+    "uniqueFactors": [
+        "Factor 1 that makes ${symbol} unique",
+        "Factor 2 specific to current conditions"
+    ],
+    "nearTermCatalysts": [
+        "Specific event/date that could impact ${symbol}",
+        "Technical level to watch for ${symbol}"
+    ],
+    "marketContext": "How ${symbol} fits in current market environment"
+}`;
+
+      const response = await this.ollama.generate(prompt, {
+        temperature: 0.4,
+        maxTokens: 2500
+      });
+
+      return this.ollama.parseJsonResponse(response.text, {
+        summary: `Analysis for ${symbol} based on current market conditions`,
+        keyPoints: [
+          `${symbol} trading at $${currentPrice} with ${contextualData.priceTrend} trend`,
+          `Technical indicators suggest ${contextualData.technicalScore > 60 ? 'bullish' : contextualData.technicalScore < 40 ? 'bearish' : 'neutral'} setup`,
+          `Sentiment analysis shows ${contextualData.sentimentScore > 60 ? 'positive' : contextualData.sentimentScore < 40 ? 'negative' : 'mixed'} market perception`
+        ],
+        investmentThesis: `${symbol} presents a ${contextualData.overallScore > 60 ? 'compelling' : contextualData.overallScore < 40 ? 'challenging' : 'mixed'} investment opportunity`,
+        uniqueFactors: [`Recent price action in ${symbol}`, `Current technical setup for ${symbol}`],
+        nearTermCatalysts: [`Price levels to watch for ${symbol}`, `Volume patterns in ${symbol}`],
+        marketContext: `${symbol} analysis conducted on ${new Date().toLocaleDateString()}`
+      });
+
+    } catch (error) {
+      console.error('Enhanced LLM insights generation failed:', error);
+      return {
+        summary: `Unable to generate enhanced insights for ${symbol}`,
+        keyPoints: ['LLM analysis unavailable'],
+        investmentThesis: 'Analysis could not be completed',
+        uniqueFactors: [],
+        nearTermCatalysts: [],
+        marketContext: 'Enhanced analysis unavailable'
+      };
+    }
+  }
+
+  // **ENHANCED RISK ANALYSIS WITH SPECIFIC CONTEXT**
+  async generateEnhancedLLMRiskAnalysis(symbol, stockData, newsData, contextualData) {
+    try {
+      const currentPrice = stockData.currentPrice?.price || 0;
+      const recentNews = newsData.articles?.slice(0, 3) || [];
+
+      const prompt = `As a risk management specialist analyzing ${symbol}, provide a comprehensive risk assessment:
+
+**CURRENT POSITION:**
+- ${symbol} at $${currentPrice}
+- Daily Change: ${stockData.currentPrice?.changePercent || 0}%
+- Price Trend: ${contextualData.priceTrend}
+- Volume: ${stockData.volumeAnalysis?.volumeRatio || 1}x normal
+
+**TECHNICAL RISK FACTORS:**
+- RSI Level: ${this.getLatestIndicator(stockData.technicalIndicators?.rsi)}
+- Distance from Support: ${this.calculateDistanceFromSupport(currentPrice, contextualData.supportResistance?.support)}
+- Distance from Resistance: ${this.calculateDistanceFromResistance(currentPrice, contextualData.supportResistance?.resistance)}
+- Technical Score: ${contextualData.technicalScore}/100
+
+**NEWS-BASED RISKS:**
+Recent ${symbol} Headlines:
+${recentNews.map(news => `• ${news.title}`).join('\n')}
+
+**MARKET ENVIRONMENT:**
+- Current Date: ${new Date().toLocaleDateString()}
+- Market Conditions: ${contextualData.marketConditions}
+- Sector Context: ${contextualData.sectorContext}
+
+**RISK ANALYSIS REQUIREMENTS:**
+Provide specific risk assessment for ${symbol} covering:
+
+1. **Immediate Risks (1-7 days)**: What could impact ${symbol} this week?
+2. **Short-term Risks (1-4 weeks)**: Technical and news-driven risks for ${symbol}
+3. **Medium-term Risks (1-6 months)**: Sector and company-specific risks for ${symbol}
+4. **Risk Quantification**: Specific price levels where risks increase for ${symbol}
+5. **Black Swan Events**: Low probability, high impact risks specific to ${symbol}
+
+**BE SPECIFIC TO ${symbol}:**
+- Reference actual price levels and technical indicators
+- Consider recent news and market events affecting ${symbol}
+- Provide actionable risk management strategies
+- Avoid generic market risks - focus on ${symbol}-specific factors
+
+Format as JSON:
+{
+    "overallRiskLevel": "LOW|MEDIUM|HIGH",
+    "riskScore": 65,
+    "immediateRisks": [
+        {
+            "risk": "Specific risk to ${symbol}",
+            "probability": "HIGH|MEDIUM|LOW",
+            "impact": "Price level or % impact",
+            "timeframe": "1-7 days"
+        }
+    ],
+    "shortTermRisks": [
+        {
+            "risk": "Technical or news risk for ${symbol}",
+            "probability": "HIGH|MEDIUM|LOW", 
+            "impact": "Specific impact on ${symbol}",
+            "timeframe": "1-4 weeks"
+        }
+    ],
+    "mediumTermRisks": [
+        {
+            "risk": "Sector/company risk for ${symbol}",
+            "probability": "HIGH|MEDIUM|LOW",
+            "impact": "Long-term impact on ${symbol}",
+            "timeframe": "1-6 months"
+        }
+    ],
+    "riskMitigation": [
+        "Specific strategy 1 for ${symbol}",
+        "Specific strategy 2 with price levels"
+    ],
+    "stopLossLevels": {
+        "conservative": 0.00,
+        "moderate": 0.00,
+        "aggressive": 0.00
+    },
+    "keyLevelsToWatch": [
+        "Support at $X for ${symbol}",
+        "Resistance at $Y for ${symbol}"
+    ]
+}`;
+
+      const response = await this.ollama.generate(prompt, {
+        temperature: 0.3,
+        maxTokens: 2500
+      });
+
+      return this.ollama.parseJsonResponse(response.text, {
+        overallRiskLevel: contextualData.technicalScore < 30 || contextualData.sentimentScore < 30 ? 'HIGH' : contextualData.technicalScore > 70 && contextualData.sentimentScore > 70 ? 'LOW' : 'MEDIUM',
+        riskScore: Math.max(10, Math.min(90, 100 - contextualData.overallScore)),
+        immediateRisks: [{ risk: `${symbol} technical risk`, probability: 'MEDIUM', impact: '2-5% price movement', timeframe: '1-7 days' }],
+        shortTermRisks: [{ risk: `${symbol} sentiment risk`, probability: 'MEDIUM', impact: 'News-driven volatility', timeframe: '1-4 weeks' }],
+        mediumTermRisks: [{ risk: `${symbol} sector risk`, probability: 'LOW', impact: 'Sector rotation impact', timeframe: '1-6 months' }],
+        riskMitigation: [`Monitor ${symbol} technical levels`, `Watch ${symbol} news flow`],
+        stopLossLevels: {
+          conservative: currentPrice * 0.90,
+          moderate: currentPrice * 0.93,
+          aggressive: currentPrice * 0.95
+        },
+        keyLevelsToWatch: [`Support: $${contextualData.supportResistance?.support || currentPrice * 0.95}`, `Resistance: $${contextualData.supportResistance?.resistance || currentPrice * 1.05}`]
+      });
+
+    } catch (error) {
+      console.error('Enhanced LLM risk analysis failed:', error);
+      return {
+        overallRiskLevel: 'MEDIUM',
+        riskScore: 50,
+        immediateRisks: [],
+        shortTermRisks: [],
+        mediumTermRisks: [],
+        riskMitigation: [],
+        stopLossLevels: { conservative: 0, moderate: 0, aggressive: 0 },
+        keyLevelsToWatch: []
+      };
+    }
+  }
+
+  // **HELPER METHODS FOR CONTEXTUAL ANALYSIS**
+  calculateSupportResistance(stockData) {
+    const currentPrice = stockData.currentPrice?.price || 0;
+    const historical = stockData.historical || [];
+    
+    if (historical.length === 0) {
+      return {
+        support: currentPrice * 0.95,
+        resistance: currentPrice * 1.05
+      };
+    }
+
+    // Calculate support and resistance from recent price action
+    const recentPrices = historical.slice(-20).map(day => [day.high, day.low]).flat();
+    const sorted = recentPrices.sort((a, b) => a - b);
+    
+    const support = sorted[Math.floor(sorted.length * 0.2)]; // 20th percentile
+    const resistance = sorted[Math.floor(sorted.length * 0.8)]; // 80th percentile
+    
+    return {
+      support: Math.round(support * 100) / 100,
+      resistance: Math.round(resistance * 100) / 100
+    };
+  }
+
+  inferSectorContext(symbol) {
+    // Basic sector inference - in a real system, this would use a sector mapping database
+    const techStocks = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'AMD', 'CRM', 'ORCL'];
+    const financialStocks = ['JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'USB', 'PNC', 'TFC', 'COF'];
+    const healthcareStocks = ['JNJ', 'PFE', 'UNH', 'ABBV', 'MRK', 'BMY', 'AMGN', 'GILD', 'LLY', 'TMO'];
+    
+    if (techStocks.includes(symbol)) return 'Technology sector - focus on innovation and growth metrics';
+    if (financialStocks.includes(symbol)) return 'Financial sector - sensitive to interest rates and economic cycles';
+    if (healthcareStocks.includes(symbol)) return 'Healthcare sector - defensive characteristics with regulatory considerations';
+    
+    return `Individual stock analysis for ${symbol} - sector-specific factors to be considered`;
+  }
+
+  getLatestIndicator(indicatorArray) {
+    if (!indicatorArray || indicatorArray.length === 0) return 'N/A';
+    const latest = indicatorArray[indicatorArray.length - 1];
+    return typeof latest === 'number' ? latest.toFixed(2) : latest;
+  }
+
+  getMarketCapContext(marketCap) {
+    if (!marketCap) return 'Market cap not available';
+    if (marketCap > 200e9) return 'Large-cap stock (>$200B)';
+    if (marketCap > 10e9) return 'Mid-cap stock ($10B-$200B)';
+    if (marketCap > 2e9) return 'Small-cap stock ($2B-$10B)';
+    return 'Micro-cap stock (<$2B)';
+  }
+
+  getPriceVsSMA(currentPrice, smaArray) {
+    if (!smaArray || smaArray.length === 0) return 'SMA not available';
+    const sma = smaArray[smaArray.length - 1];
+    const diff = ((currentPrice - sma) / sma * 100).toFixed(1);
+    return `${diff > 0 ? '+' : ''}${diff}% vs SMA20`;
+  }
+
+  calculateDistanceFromSupport(currentPrice, support) {
+    if (!support) return 'Support level not available';
+    const distance = ((currentPrice - support) / support * 100).toFixed(1);
+    return `${distance}% above support`;
+  }
+
+  calculateDistanceFromResistance(currentPrice, resistance) {
+    if (!resistance) return 'Resistance level not available';
+    const distance = ((resistance - currentPrice) / currentPrice * 100).toFixed(1);
+    return `${distance}% below resistance`;
+  }
+
+  generateFallbackMarketContext(symbol, llmFailureReason) {
+    const currentDate = new Date().toLocaleDateString();
+    const currentTime = new Date().toLocaleTimeString();
+    
+    return `⚠️ **LIMITED ANALYSIS NOTICE**
+
+**AI Analysis Status**: UNAVAILABLE
+**Reason**: ${llmFailureReason}
+**Analysis Type**: Traditional Mathematical Models
+**Generated**: ${currentDate} at ${currentTime}
+
+**Impact on Analysis Quality**:
+• Generic recommendations instead of ${symbol}-specific insights
+• Limited integration of recent news and market sentiment
+• Mathematical indicators only, no contextual AI interpretation
+• Reduced accuracy for current market conditions
+
+**What This Means**:
+This analysis uses basic technical indicators and sentiment scores but lacks the advanced AI interpretation that provides stock-specific insights, market context, and nuanced recommendations. The results may be less accurate and actionable compared to AI-powered analysis.
+
+**Recommendation**: For optimal investment analysis, ensure Ollama LLM service is running and accessible, then re-run the analysis for ${symbol}.`;
+  }
+
+  addLLMFailureIndicators(analysisComponent, llmFailureReason) {
+    if (typeof analysisComponent === 'object' && analysisComponent !== null) {
+      if (Array.isArray(analysisComponent)) {
+        return analysisComponent.map(item => ({
+          ...item,
+          llmFailureNote: `⚠️ Traditional analysis used due to LLM failure: ${llmFailureReason}`
+        }));
+      } else {
+        return {
+          ...analysisComponent,
+          llmFailureNote: `⚠️ Traditional analysis used due to LLM failure: ${llmFailureReason}`,
+          analysisLimitations: [
+            'Generic mathematical models instead of contextual AI analysis',
+            'Less specific price targets and recommendations',
+            'Limited integration of recent news and market conditions',
+            'Reduced accuracy for current market environment'
+          ]
+        };
+      }
+    }
+    return analysisComponent;
   }
 }
 

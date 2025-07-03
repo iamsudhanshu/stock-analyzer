@@ -5,7 +5,7 @@ class OllamaService {
     constructor(config = {}) {
         this.baseUrl = config.baseUrl || process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
         this.defaultModel = config.model || process.env.OLLAMA_MODEL || 'llama3.1:8b';
-        this.timeout = config.timeout || 30000;
+        this.timeout = config.timeout || 300000; // 5 minutes for comprehensive analysis
         this.maxRetries = config.maxRetries || 3;
         
         logger.info('OllamaService initialized', {
@@ -180,57 +180,282 @@ Format as JSON:
      * Generate investment recommendations
      */
     async generateInvestmentRecommendation(analysisData) {
-        const prompt = `As an expert financial analyst, provide investment recommendations based on the following comprehensive stock analysis:
+        const symbol = analysisData.symbol || 'Unknown';
+        const currentPrice = analysisData.technical?.currentPrice?.price || 0;
+        const priceChange = analysisData.technical?.currentPrice?.changePercent || 0;
+        const marketContext = analysisData.marketContext || {};
+        const recentNews = analysisData.sentiment?.recentNews || [];
 
-TECHNICAL ANALYSIS:
-- Technical Score: ${analysisData.technical?.score || 'N/A'}
-- Key Indicators: ${JSON.stringify(analysisData.technical?.indicators || {})}
-- Price Trend: ${analysisData.technical?.trend || 'N/A'}
+        const prompt = `As a senior institutional equity analyst with 15+ years of experience, provide a comprehensive investment report for ${symbol}:
 
-SENTIMENT ANALYSIS:
-- Sentiment Score: ${analysisData.sentiment?.score || 'N/A'}
-- News Sentiment: ${analysisData.sentiment?.newsSentiment || 'N/A'}
-- Social Sentiment: ${analysisData.sentiment?.socialSentiment || 'N/A'}
+═══════════════════════════════════════════════════════════════════════════════
+📊 CURRENT MARKET SNAPSHOT FOR ${symbol}
+═══════════════════════════════════════════════════════════════════════════════
 
-ECONOMIC CONTEXT:
-- Economic Regime: ${analysisData.economic?.regime || 'N/A'}
-- Key Indicators: ${JSON.stringify(analysisData.economic?.indicators || {})}
+**STOCK DETAILS:**
+• Symbol: ${symbol}
+• Current Price: $${currentPrice}
+• Today's Performance: ${priceChange > 0 ? '+' : ''}${priceChange}% (${analysisData.technical?.trend || 'neutral'} trend)
+• Analysis Date: ${marketContext.currentDate || new Date().toLocaleDateString()}
+• Market Conditions: ${marketContext.marketConditions || 'Regular trading'}
 
-Please provide detailed recommendations for:
-1. Short-term (1-4 weeks)
-2. Mid-term (1-6 months)
-3. Long-term (6+ months)
+**TECHNICAL ANALYSIS:**
+• Technical Strength: ${analysisData.technical?.score || 'N/A'}/100
+• RSI: ${this.getIndicatorValue(analysisData.technical?.indicators?.rsi)} (${this.interpretRSI(analysisData.technical?.indicators?.rsi)})
+• Price vs 20-day SMA: ${this.getIndicatorValue(analysisData.technical?.indicators?.sma?.sma20) ? 
+    `$${this.getIndicatorValue(analysisData.technical?.indicators?.sma?.sma20)} (${currentPrice > this.getIndicatorValue(analysisData.technical?.indicators?.sma?.sma20) ? 'Above' : 'Below'})` : 'N/A'}
+• Volume Activity: ${analysisData.technical?.volumeAnalysis?.volumeRatio || 1}x normal volume
+• Support Level: $${analysisData.technical?.supportResistance?.support || 'N/A'}
+• Resistance Level: $${analysisData.technical?.supportResistance?.resistance || 'N/A'}
 
-Format as JSON:
+**SENTIMENT & NEWS ANALYSIS:**
+• Sentiment Score: ${analysisData.sentiment?.score || 'N/A'}/100
+• News Sentiment: ${analysisData.sentiment?.newsSentiment || 'N/A'}
+• Social Sentiment: ${analysisData.sentiment?.socialSentiment || 'N/A'}
+
+**RECENT ${symbol} HEADLINES:**
+${recentNews.slice(0, 5).map((article, idx) => 
+    `${idx + 1}. "${article.title || article.headline || 'News item'}" (${article.publishedAt ? new Date(article.publishedAt).toLocaleDateString() : 'Recent'})`
+).join('\n')}
+
+**KEY THEMES:** ${analysisData.sentiment?.keyThemes?.join(', ') || 'No specific themes identified'}
+
+**SECTOR CONTEXT:** ${marketContext.sectorContext || `${symbol} individual analysis`}
+
+═══════════════════════════════════════════════════════════════════════════════
+📋 INVESTMENT ANALYSIS REQUIREMENTS
+═══════════════════════════════════════════════════════════════════════════════
+
+**CRITICAL INSTRUCTIONS:**
+1. **BE STOCK-SPECIFIC**: Every insight must be unique to ${symbol} at current price levels
+2. **USE ACTUAL DATA**: Reference the specific price of $${currentPrice}, technical levels, and recent news
+3. **CONSIDER TIMING**: Factor in current date (${marketContext.currentDate || new Date().toLocaleDateString()}) and market conditions
+4. **BE ACTIONABLE**: Provide specific price targets, stop-loss levels, and concrete actions
+5. **EXPLAIN REASONING**: Detail WHY these recommendations apply specifically to ${symbol}
+
+**ANALYSIS DEPTH REQUIRED:**
+• **Investment Thesis**: What makes ${symbol} unique at $${currentPrice}?
+• **Technical Setup**: How do current levels create opportunity/risk for ${symbol}?
+• **News Impact**: How do recent headlines specifically affect ${symbol}'s outlook?
+• **Sector Positioning**: Where does ${symbol} stand in current market environment?
+• **Risk Assessment**: What are the specific risks for ${symbol} at these levels?
+
+═══════════════════════════════════════════════════════════════════════════════
+📊 REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════════════════════════
+
+Provide comprehensive recommendations in this EXACT JSON structure:
+
 {
+    "executiveSummary": "2-3 sentence executive summary specifically about ${symbol} at $${currentPrice} - be specific to current conditions and price level",
+    
+    "overallRating": "STRONG_BUY|BUY|HOLD|SELL|STRONG_SELL",
+    "overallConfidence": 0.85,
+    
     "shortTerm": {
-        "recommendation": "buy|sell|hold",
+        "recommendation": "STRONG_BUY|BUY|HOLD|SELL|STRONG_SELL",
         "confidence": 0.85,
-        "reasoning": "Detailed explanation",
-        "risks": ["risk1", "risk2"],
-        "targetPrice": 150.00,
-        "timeframe": "2-4 weeks"
+        "reasoning": "Specific 1-4 week outlook for ${symbol} considering current price $${currentPrice}, technical setup, and immediate catalysts",
+        "entryStrategy": "Detailed entry strategy with specific price levels for ${symbol}",
+        "priceTargets": {
+            "primary": 000.00,
+            "secondary": 000.00,
+            "rationale": "Why these specific price targets make sense for ${symbol} based on technical/fundamental analysis"
+        },
+        "stopLoss": {
+            "level": 000.00,
+            "reasoning": "Risk management rationale specific to ${symbol}'s volatility and support levels"
+        },
+        "catalysts": ["Specific near-term catalyst 1 for ${symbol}", "Specific near-term catalyst 2 for ${symbol}"],
+        "risks": ["Specific short-term risk 1 for ${symbol}", "Specific short-term risk 2 for ${symbol}"],
+        "positionSizing": "conservative|normal|aggressive",
+        "timeframe": "1-4 weeks",
+        "actionItems": ["Specific action 1 for ${symbol}", "Specific action 2 for ${symbol}"]
     },
-    "midTerm": { ... },
-    "longTerm": { ... },
-    "overallAssessment": "Comprehensive market outlook",
-    "keyFactors": ["factor1", "factor2"],
-    "riskLevel": "low|medium|high"
-}`;
+    
+    "midTerm": {
+        "recommendation": "STRONG_BUY|BUY|HOLD|SELL|STRONG_SELL",
+        "confidence": 0.80,
+        "reasoning": "Detailed 1-6 month investment thesis for ${symbol} considering sector trends and company fundamentals",
+        "investmentThesis": "Core fundamental reasons for position in ${symbol}",
+        "priceTargets": {
+            "conservative": 000.00,
+            "optimistic": 000.00,
+            "rationale": "Multiple scenario pricing for ${symbol} based on business fundamentals"
+        },
+        "stopLoss": {
+            "level": 000.00,
+            "reasoning": "Risk management for longer hold period in ${symbol}"
+        },
+        "keyMilestones": ["Specific milestone 1 for ${symbol}", "Specific milestone 2 for ${symbol}"],
+        "fundamentalFactors": ["Key fundamental 1 for ${symbol}", "Key fundamental 2 for ${symbol}"],
+        "technicalSetup": "How current technical picture supports mid-term thesis for ${symbol}",
+        "marketEnvironmentImpact": "How broader market trends specifically affect ${symbol}",
+        "actionItems": ["Specific mid-term action 1", "Specific mid-term action 2"]
+    },
+    
+    "longTerm": {
+        "recommendation": "STRONG_BUY|BUY|HOLD|SELL|STRONG_SELL",
+        "confidence": 0.75,
+        "reasoning": "Strategic 6+ month investment case for ${symbol}",
+        "strategicThesis": "Long-term value proposition specific to ${symbol}",
+        "fairValueAssessment": {
+            "intrinsicValue": 000.00,
+            "currentDiscount": "X%",
+            "methodology": "Valuation approach used for ${symbol}"
+        },
+        "growthDrivers": ["Specific growth driver 1 for ${symbol}", "Specific growth driver 2 for ${symbol}"],
+        "competitivePosition": "How ${symbol} competes in its market/sector",
+        "portfolioRole": "How ${symbol} fits in diversified portfolio",
+        "riskFactors": ["Long-term risk 1 for ${symbol}", "Long-term risk 2 for ${symbol}"],
+        "actionItems": ["Long-term action 1", "Long-term action 2"]
+    },
+    
+    "riskAnalysis": {
+        "overallRiskLevel": "LOW|MEDIUM|HIGH",
+        "primaryRisks": [
+            {
+                "risk": "Specific risk to ${symbol}",
+                "impact": "HIGH|MEDIUM|LOW",
+                "probability": "HIGH|MEDIUM|LOW",
+                "mitigation": "Specific mitigation strategy for ${symbol}"
+            }
+        ],
+        "stressScenarios": {
+            "marketDownturn": "How ${symbol} performs in 20% market decline",
+            "sectorRotation": "Impact of rotation away from ${symbol}'s sector",
+            "companySpecific": "Company-specific downside scenario for ${symbol}"
+        },
+        "correlationRisk": "How ${symbol} correlates with market/sector movements"
+    },
+    
+    "technicalAnalysis": {
+        "chartPattern": "Current technical pattern for ${symbol} and implications",
+        "momentum": "Momentum indicator analysis for ${symbol}",
+        "volumeAnalysis": "Volume trend significance for ${symbol}",
+        "supportResistance": {
+            "support": [000.00, 000.00],
+            "resistance": [000.00, 000.00]
+        },
+        "technicalRating": 7.5,
+        "technicalRationale": "Why this technical rating for ${symbol}"
+    },
+    
+    "marketTiming": {
+        "optimalEntryWindow": "Best timing for ${symbol} position entry",
+        "phasedEntryStrategy": "How to build ${symbol} position over time",
+        "exitStrategy": "When and how to take profits/cut losses in ${symbol}",
+        "marketConditions": "How current market environment affects ${symbol}",
+        "sectorRotation": "${symbol}'s position in sector rotation cycle"
+    },
+    
+    "scenarioAnalysis": {
+        "bullCase": {
+            "probability": 0.30,
+            "priceTarget": 000.00,
+            "description": "Maximum upside scenario for ${symbol} and key drivers"
+        },
+        "baseCase": {
+            "probability": 0.40,
+            "priceTarget": 000.00,
+            "description": "Most likely scenario for ${symbol}"
+        },
+        "bearCase": {
+            "probability": 0.30,
+            "priceTarget": 000.00,
+            "description": "Downside scenario for ${symbol} and triggers"
+        }
+    },
+    
+    "monitoringMetrics": [
+        "Specific metric 1 to track for ${symbol}",
+        "Specific metric 2 to track for ${symbol}",
+        "Specific metric 3 to track for ${symbol}",
+        "Specific metric 4 to track for ${symbol}",
+        "Specific metric 5 to track for ${symbol}"
+    ],
+    
+    "keyInsights": [
+        "Most important unique insight about ${symbol}",
+        "Critical factor that could change ${symbol} thesis", 
+        "Unique opportunity/risk not obvious to other investors in ${symbol}"
+    ],
+    
+    "reportGenerated": "${new Date().toISOString()}",
+    "analystNote": "Additional context specific to ${symbol} and current market conditions"
+}
+
+═══════════════════════════════════════════════════════════════════════════════
+⚠️  CRITICAL REQUIREMENTS
+═══════════════════════════════════════════════════════════════════════════════
+
+• **NO GENERIC STATEMENTS**: Every statement must be specific to ${symbol}
+• **USE ACTUAL NUMBERS**: Reference $${currentPrice} and specific technical levels
+• **CURRENT RELEVANCE**: Consider today's date and recent news for ${symbol}
+• **ACTIONABLE INSIGHTS**: Provide concrete, tradeable recommendations
+• **STOCK-SPECIFIC RISKS**: Focus on risks unique to ${symbol}, not general market risks
+• **PRICE PRECISION**: All price targets must be realistic relative to $${currentPrice}
+
+Generate this analysis as if you are providing it to institutional investors who need ${symbol}-specific insights they cannot get from generic market analysis.`;
 
         try {
             const response = await this.generate(prompt, {
                 temperature: 0.4,
-                maxTokens: 2500
+                maxTokens: 4000
             });
 
             return this.parseJsonResponse(response.text, {
-                shortTerm: { recommendation: 'hold', confidence: 0.5, reasoning: 'Insufficient data' },
-                midTerm: { recommendation: 'hold', confidence: 0.5, reasoning: 'Insufficient data' },
-                longTerm: { recommendation: 'hold', confidence: 0.5, reasoning: 'Insufficient data' },
-                overallAssessment: 'Analysis unavailable',
-                keyFactors: [],
-                riskLevel: 'medium'
+                executiveSummary: `Comprehensive analysis unavailable for ${symbol}`,
+                overallRating: 'HOLD',
+                overallConfidence: 0.5,
+                shortTerm: { 
+                    recommendation: 'HOLD', 
+                    confidence: 0.5, 
+                    reasoning: `Insufficient data for short-term analysis of ${symbol}`,
+                    actionItems: [`Monitor ${symbol} technical indicators`, `Wait for better entry in ${symbol}`]
+                },
+                midTerm: { 
+                    recommendation: 'HOLD', 
+                    confidence: 0.5, 
+                    reasoning: `Insufficient data for mid-term analysis of ${symbol}`,
+                    actionItems: [`Review ${symbol} quarterly earnings`, `Assess ${symbol} sector trends`]
+                },
+                longTerm: { 
+                    recommendation: 'HOLD', 
+                    confidence: 0.5, 
+                    reasoning: `Insufficient data for long-term analysis of ${symbol}`,
+                    actionItems: [`Conduct ${symbol} fundamental analysis`, `Monitor ${symbol} competitive position`]
+                },
+                riskAnalysis: {
+                    overallRiskLevel: 'MEDIUM',
+                    primaryRisks: [],
+                    stressScenarios: {},
+                    correlationRisk: `Unable to assess ${symbol} correlation risk`
+                },
+                technicalAnalysis: {
+                    chartPattern: `Pattern analysis unavailable for ${symbol}`,
+                    momentum: `Momentum analysis unavailable for ${symbol}`,
+                    volumeAnalysis: `Volume analysis unavailable for ${symbol}`,
+                    supportResistance: { support: [], resistance: [] },
+                    technicalRating: 5.0,
+                    technicalRationale: `Insufficient technical data for ${symbol}`
+                },
+                marketTiming: {
+                    optimalEntryWindow: `Unable to determine optimal timing for ${symbol}`,
+                    phasedEntryStrategy: `Standard dollar-cost averaging recommended for ${symbol}`,
+                    exitStrategy: `Monitor ${symbol} for technical breakdown`,
+                    marketConditions: `Assess broader market impact on ${symbol}`,
+                    sectorRotation: `Monitor ${symbol} sector rotation trends`
+                },
+                scenarioAnalysis: {
+                    bullCase: { probability: 0.33, priceTarget: null, description: `Bull case analysis unavailable for ${symbol}` },
+                    baseCase: { probability: 0.34, priceTarget: null, description: `Base case analysis unavailable for ${symbol}` },
+                    bearCase: { probability: 0.33, priceTarget: null, description: `Bear case analysis unavailable for ${symbol}` }
+                },
+                monitoringMetrics: [`${symbol} technical indicators`, `${symbol} volume trends`, `${symbol} news sentiment`],
+                keyInsights: [`Enhanced analysis not available for ${symbol}`],
+                reportGenerated: new Date().toISOString(),
+                analystNote: `This is a fallback response due to LLM analysis unavailability for ${symbol}`
             });
         } catch (error) {
             logger.error('Investment recommendation generation failed', { error: error.message });
@@ -415,6 +640,23 @@ Format as JSON:
             });
             throw error;
         }
+    }
+
+    // **HELPER METHODS FOR PROMPT ENHANCEMENT**
+    getIndicatorValue(indicatorArray) {
+        if (!indicatorArray || indicatorArray.length === 0) return null;
+        const latest = indicatorArray[indicatorArray.length - 1];
+        return typeof latest === 'number' ? latest.toFixed(2) : latest;
+    }
+
+    interpretRSI(rsiArray) {
+        const rsi = this.getIndicatorValue(rsiArray);
+        if (!rsi) return 'N/A';
+        const rsiNum = parseFloat(rsi);
+        if (rsiNum > 70) return 'Overbought';
+        if (rsiNum < 30) return 'Oversold';
+        if (rsiNum >= 50) return 'Bullish momentum';
+        return 'Bearish momentum';
     }
 }
 

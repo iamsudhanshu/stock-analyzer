@@ -14,6 +14,13 @@ function App() {
   const [showWelcome, setShowWelcome] = useState(true);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
+  const [agentProgress, setAgentProgress] = useState({
+    StockDataAgent: 0,
+    NewsSentimentAgent: 0,
+    FundamentalDataAgent: 0,
+    CompetitiveAgent: 0,
+    AnalysisAgent: 0
+  });
 
   const handleAnalysisStart = (symbol) => {
     console.log('🎯 [App] Analysis started for symbol:', symbol);
@@ -24,6 +31,13 @@ function App() {
     setShowWelcome(false);
     setProgress(0);
     setProgressMessage('Initializing analysis...');
+    setAgentProgress({
+      StockDataAgent: 0,
+      NewsSentimentAgent: 0,
+      FundamentalDataAgent: 0,
+      CompetitiveAgent: 0,
+      AnalysisAgent: 0
+    });
     console.log('📊 [App] State updated - loading started');
   };
 
@@ -59,13 +73,62 @@ function App() {
     setShowWelcome(true);
     setProgress(0);
     setProgressMessage('');
+    setAgentProgress({
+      StockDataAgent: 0,
+      NewsSentimentAgent: 0,
+      FundamentalDataAgent: 0,
+      CompetitiveAgent: 0,
+      AnalysisAgent: 0
+    });
     console.log('✅ [App] State reset completed');
   };
 
   const handleProgressUpdate = (progressData) => {
     console.log('📊 [App] Progress update received:', progressData);
-    setProgress(progressData.progress || 0);
-    setProgressMessage(progressData.message || 'Processing...');
+    
+    // Update individual agent progress if agentType is provided
+    if (progressData.agentType && progressData.progress !== undefined) {
+      setAgentProgress(prev => {
+        const updatedProgress = {
+          ...prev,
+          [progressData.agentType]: progressData.progress
+        };
+        
+        console.log('📈 [App] Updated agent progress:', progressData.agentType, progressData.progress);
+        
+        // Calculate overall progress based on all agents
+        const agentWeights = {
+          StockDataAgent: 0.2,        // 20%
+          NewsSentimentAgent: 0.2,    // 20%
+          FundamentalDataAgent: 0.2,  // 20%
+          CompetitiveAgent: 0.2,      // 20%
+          AnalysisAgent: 0.2          // 20%
+        };
+        
+        const overallProgress = Object.keys(agentWeights).reduce((total, agentType) => {
+          const agentProgressValue = updatedProgress[agentType] || 0;
+          return total + (agentProgressValue * agentWeights[agentType]);
+        }, 0);
+        
+        // Use the provided progress if no agentType, otherwise use calculated progress
+        const finalProgress = progressData.agentType ? overallProgress : (progressData.progress || 0);
+        
+        setProgress(finalProgress);
+        setProgressMessage(progressData.message || 'Processing...');
+        
+        console.log('📊 [App] Overall progress calculated:', {
+          agentProgress: updatedProgress,
+          overallProgress: finalProgress,
+          message: progressData.message
+        });
+        
+        return updatedProgress;
+      });
+    } else {
+      // Fallback for progress updates without agentType
+      setProgress(progressData.progress || 0);
+      setProgressMessage(progressData.message || 'Processing...');
+    }
   };
 
   // Auto-hide welcome after some time if no interaction
@@ -132,26 +195,6 @@ function App() {
                 Experience next-generation investment analysis powered by multi-agent AI technology. 
                 Get comprehensive insights covering technical indicators and market sentiment analysis.
               </p>
-              
-              {/* Feature highlights */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div className="glass-card p-4 rounded-2xl transform hover:scale-105 transition-all duration-300 hover-lift">
-                  <BarChart3 className="h-6 w-6 text-blue-600 mx-auto mb-2" />
-                  <span className="text-sm font-semibold text-gray-700">Technical Analysis</span>
-                </div>
-                <div className="glass-card p-4 rounded-2xl transform hover:scale-105 transition-all duration-300 hover-lift">
-                  <Brain className="h-6 w-6 text-purple-600 mx-auto mb-2" />
-                  <span className="text-sm font-semibold text-gray-700">AI Sentiment</span>
-                </div>
-                <div className="glass-card p-4 rounded-2xl transform hover:scale-105 transition-all duration-300 hover-lift">
-                  <TrendingUp className="h-6 w-6 text-green-600 mx-auto mb-2" />
-                  <span className="text-sm font-semibold text-gray-700">Market Intelligence</span>
-                </div>
-                <div className="glass-card p-4 rounded-2xl transform hover:scale-105 transition-all duration-300 hover-lift">
-                  <Zap className="h-6 w-6 text-yellow-600 mx-auto mb-2" />
-                  <span className="text-sm font-semibold text-gray-700">Real-time Data</span>
-                </div>
-              </div>
             </div>
           </header>
 
