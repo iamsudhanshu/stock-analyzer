@@ -177,12 +177,6 @@ class UIAgent extends BaseAgent {
             timestamp: new Date().toISOString(),
             payload: analysisPayload
           }).then(() => console.log('✅ [UIAgent] Published to news queue')),
-          redisClient.publish(config.queues.economic, {
-            requestId,
-            agentType: 'UIAgent',
-            timestamp: new Date().toISOString(),
-            payload: analysisPayload
-          }).then(() => console.log('✅ [UIAgent] Published to economic queue')),
           redisClient.publish(config.queues.analysis, {
             requestId,
             agentType: 'UIAgent',
@@ -276,7 +270,7 @@ class UIAgent extends BaseAgent {
     // List all agents status
     this.app.get('/api/agents/status', async (req, res) => {
       try {
-        const agents = ['StockDataAgent', 'NewsSentimentAgent', 'EconomicIndicatorAgent', 'AnalysisAgent'];
+        const agents = ['StockDataAgent', 'NewsSentimentAgent', 'AnalysisAgent'];
         const status = {};
         
         for (const agent of agents) {
@@ -396,7 +390,22 @@ class UIAgent extends BaseAgent {
 
   async handleUIMessage(message) {
     try {
+      // Message should already be parsed by RedisClient
+      if (!message || typeof message !== 'object') {
+        console.error('💥 [UIAgent] Received invalid message type:', typeof message);
+        logger.error('UIAgent received invalid message type:', typeof message);
+        return;
+      }
+
       console.log('📨 [UIAgent] Received UI message:', message);
+      console.log('📨 [UIAgent] Message details:', {
+        type: message.type,
+        status: message.status,
+        agentType: message.agentType,
+        requestId: message.requestId,
+        progress: message.progress,
+        message: message.message
+      });
       
       const { requestId, type, progress, message: progressMessage, payload, status } = message;
       
@@ -409,6 +418,7 @@ class UIAgent extends BaseAgent {
       const request = this.activeRequests.get(requestId);
       if (!request) {
         console.log('⚠️ [UIAgent] Unknown requestId:', requestId);
+        console.log('⚠️ [UIAgent] Active requests:', Array.from(this.activeRequests.keys()));
         logger.debug(`Received message for unknown request ${requestId}`);
         return;
       }
@@ -418,7 +428,8 @@ class UIAgent extends BaseAgent {
         type,
         status,
         hasPayload: !!payload,
-        progress
+        progress,
+        connectedSockets: this.socketConnections.size
       });
 
       // Handle different message types
@@ -426,7 +437,9 @@ class UIAgent extends BaseAgent {
         console.log('📈 [UIAgent] Sending progress update:', {
           requestId,
           progress,
-          message: progressMessage
+          message: progressMessage,
+          roomName: `request_${requestId}`,
+          socketsInRoom: this.io.sockets.adapter.rooms.get(`request_${requestId}`)?.size || 0
         });
         
         // Progress update
@@ -436,6 +449,8 @@ class UIAgent extends BaseAgent {
           message: progressMessage,
           timestamp: new Date().toISOString()
         });
+        
+        console.log('✅ [UIAgent] Progress event emitted to room');
         
         request.lastProgress = progress;
         request.lastProgressMessage = progressMessage;

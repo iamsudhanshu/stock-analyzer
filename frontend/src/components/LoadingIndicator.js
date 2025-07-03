@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useSocket } from '../contexts/SocketContext';
-import { Activity, TrendingUp, Newspaper, DollarSign, BarChart3, Brain, Zap, Clock } from 'lucide-react';
+import { Activity, TrendingUp, Newspaper, Brain, Zap, Clock } from 'lucide-react';
 
-const LoadingIndicator = ({ symbol }) => {
-  const [progress, setProgress] = useState(0);
-  const [currentMessage, setCurrentMessage] = useState('Initializing AI analysis...');
+const LoadingIndicator = ({ symbol, progress, message }) => {
+  const [displayProgress, setDisplayProgress] = useState(progress || 0);
+  const [currentMessage, setCurrentMessage] = useState(message || 'Initializing AI analysis...');
   const [startTime] = useState(new Date());
   const [elapsedTime, setElapsedTime] = useState(0);
   const [stages, setStages] = useState([
@@ -25,14 +24,6 @@ const LoadingIndicator = ({ symbol }) => {
       status: 'pending'
     },
     { 
-      name: 'Economic Indicators', 
-      icon: DollarSign, 
-      completed: false, 
-      progress: 0, 
-      description: 'Analyzing economic environment and market regime',
-      status: 'pending'
-    },
-    { 
       name: 'AI Analysis & Recommendations', 
       icon: Brain, 
       completed: false, 
@@ -41,8 +32,6 @@ const LoadingIndicator = ({ symbol }) => {
       status: 'pending'
     }
   ]);
-
-  const { socket } = useSocket();
 
   // Update elapsed time every second
   useEffect(() => {
@@ -53,21 +42,16 @@ const LoadingIndicator = ({ symbol }) => {
     return () => clearInterval(timer);
   }, [startTime]);
 
+  // Update progress when props change
   useEffect(() => {
-    const handleProgress = (data) => {
-      const newProgress = data.progress || 0;
-      setProgress(newProgress);
-      setCurrentMessage(data.message || 'Processing...');
-      
-      // Update stage progress with more detailed mapping
-      updateStageProgress(data.message, newProgress, data.stage);
-    };
-
-    if (socket) {
-      socket.on('progress', handleProgress);
-      return () => socket.off('progress', handleProgress);
+    if (progress !== undefined) {
+      setDisplayProgress(progress);
+      updateStageProgress(message, progress);
     }
-  }, [socket]);
+    if (message !== undefined) {
+      setCurrentMessage(message);
+    }
+  }, [progress, message]);
 
   const updateStageProgress = (message, totalProgress, stageName) => {
     setStages(prevStages => {
@@ -82,44 +66,34 @@ const LoadingIndicator = ({ symbol }) => {
         });
       }
       
-      // Stage 0: Stock Data (0-25%)
-      if (totalProgress >= 0 && totalProgress < 25) {
+      // Stage 0: Stock Data (0-33%)
+      if (totalProgress >= 0 && totalProgress < 33) {
         newStages[0].status = 'active';
-        newStages[0].progress = Math.min(100, (totalProgress / 25) * 100);
-      } else if (totalProgress >= 25) {
+        newStages[0].progress = Math.min(100, (totalProgress / 33) * 100);
+      } else if (totalProgress >= 33) {
         newStages[0].completed = true;
         newStages[0].progress = 100;
         newStages[0].status = 'completed';
       }
       
-      // Stage 1: News Sentiment (25-50%)
-      if (totalProgress >= 25 && totalProgress < 50) {
+      // Stage 1: News Sentiment (33-66%)
+      if (totalProgress >= 33 && totalProgress < 66) {
         newStages[1].status = 'active';
-        newStages[1].progress = Math.min(100, ((totalProgress - 25) / 25) * 100);
-      } else if (totalProgress >= 50) {
+        newStages[1].progress = Math.min(100, ((totalProgress - 33) / 33) * 100);
+      } else if (totalProgress >= 66) {
         newStages[1].completed = true;
         newStages[1].progress = 100;
         newStages[1].status = 'completed';
       }
       
-      // Stage 2: Economic Data (50-75%)
-      if (totalProgress >= 50 && totalProgress < 75) {
+      // Stage 2: AI Analysis (66-100%)
+      if (totalProgress >= 66) {
         newStages[2].status = 'active';
-        newStages[2].progress = Math.min(100, ((totalProgress - 50) / 25) * 100);
-      } else if (totalProgress >= 75) {
-        newStages[2].completed = true;
-        newStages[2].progress = 100;
-        newStages[2].status = 'completed';
-      }
-      
-      // Stage 3: AI Analysis (75-100%)
-      if (totalProgress >= 75) {
-        newStages[3].status = 'active';
-        newStages[3].progress = Math.min(100, ((totalProgress - 75) / 25) * 100);
+        newStages[2].progress = Math.min(100, ((totalProgress - 66) / 34) * 100);
         if (totalProgress >= 95) {
-          newStages[3].completed = true;
-          newStages[3].progress = 100;
-          newStages[3].status = 'completed';
+          newStages[2].completed = true;
+          newStages[2].progress = 100;
+          newStages[2].status = 'completed';
         }
       }
       
@@ -184,12 +158,12 @@ const LoadingIndicator = ({ symbol }) => {
         <div className="mt-4">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm text-blue-100">Overall Progress</span>
-            <span className="text-sm font-semibold">{Math.round(progress)}%</span>
+            <span className="text-sm font-semibold">{Math.round(displayProgress)}%</span>
           </div>
           <div className="w-full bg-blue-800/30 rounded-full h-2">
             <div
               className="bg-gradient-to-r from-white to-yellow-300 h-2 rounded-full transition-all duration-700 ease-out shadow-sm"
-              style={{ width: `${progress}%` }}
+              style={{ width: `${displayProgress}%` }}
             ></div>
           </div>
         </div>
@@ -272,7 +246,7 @@ const LoadingIndicator = ({ symbol }) => {
               <ul className="text-sm text-purple-700 space-y-1">
                 <li>• Processing real-time market data with machine learning models</li>
                 <li>• Analyzing sentiment patterns from news and social media</li>
-                <li>• Evaluating economic indicators and market conditions</li>
+                <li>• Combining technical and sentiment analysis for comprehensive insights</li>
                 <li>• Generating personalized investment recommendations</li>
               </ul>
             </div>
@@ -284,7 +258,7 @@ const LoadingIndicator = ({ symbol }) => {
           <div className="inline-flex items-center px-4 py-2 bg-gray-100 rounded-full">
             <Clock className="h-4 w-4 text-gray-500 mr-2" />
             <span className="text-sm text-gray-700">
-              Estimated completion: {Math.max(5, 45 - Math.round(progress * 0.4))} seconds
+              Estimated completion: {Math.max(5, 45 - Math.round(displayProgress * 0.4))} seconds
             </span>
           </div>
         </div>

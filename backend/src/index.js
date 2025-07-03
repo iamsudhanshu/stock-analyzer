@@ -7,7 +7,6 @@ const redisClient = require('./utils/redis');
 // Import all agents
 const StockDataAgent = require('./agents/stockDataAgent');
 const NewsSentimentAgent = require('./agents/newsSentimentAgent');
-const EconomicIndicatorAgent = require('./agents/economicIndicatorAgent');
 const AnalysisAgent = require('./agents/analysisAgent');
 const UIAgent = require('./agents/uiAgent');
 
@@ -69,20 +68,17 @@ class ApplicationManager {
       // Create agent instances
       const stockDataAgent = new StockDataAgent();
       const newsSentimentAgent = new NewsSentimentAgent();
-      const economicIndicatorAgent = new EconomicIndicatorAgent();
       const analysisAgent = new AnalysisAgent();
 
       console.log('📦 [ApplicationManager] Created agents:', {
         StockDataAgent: !!stockDataAgent,
         NewsSentimentAgent: !!newsSentimentAgent,
-        EconomicIndicatorAgent: !!economicIndicatorAgent,
         AnalysisAgent: !!analysisAgent
       });
 
       // Store agent references
       this.agents.set('StockDataAgent', stockDataAgent);
       this.agents.set('NewsSentimentAgent', newsSentimentAgent);
-      this.agents.set('EconomicIndicatorAgent', economicIndicatorAgent);
       this.agents.set('AnalysisAgent', analysisAgent);
 
       console.log('🔄 [ApplicationManager] Starting data agents in parallel...');
@@ -91,7 +87,6 @@ class ApplicationManager {
       await Promise.all([
         stockDataAgent.start().then(() => console.log('✅ [ApplicationManager] StockDataAgent started')),
         newsSentimentAgent.start().then(() => console.log('✅ [ApplicationManager] NewsSentimentAgent started')),
-        economicIndicatorAgent.start().then(() => console.log('✅ [ApplicationManager] EconomicIndicatorAgent started')),
         analysisAgent.start().then(() => console.log('✅ [ApplicationManager] AnalysisAgent started'))
       ]);
 
@@ -228,11 +223,6 @@ class ApplicationManager {
     if (!config.apiKeys.newsApi) {
       console.log('⚠️ [ApplicationManager] No news API key configured - using mock data');
       logger.warn('No news API key configured - using mock data');
-    }
-
-    if (!config.apiKeys.fred) {
-      console.log('⚠️ [ApplicationManager] No FRED API key configured - using mock economic data');
-      logger.warn('No FRED API key configured - using mock economic data');
     }
   }
 

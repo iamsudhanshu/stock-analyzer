@@ -12,7 +12,7 @@ class AnalysisAgent extends BaseAgent {
     );
     
     this.pendingAnalyses = new Map();
-    this.dataCollectionTimeout = 30000; // 30 seconds timeout
+    this.dataCollectionTimeout = 120000; // 2 minutes timeout (increased from 30 seconds)
     this.ollama = new OllamaService();
     this.ollamaEnabled = false;
     
@@ -49,19 +49,84 @@ class AnalysisAgent extends BaseAgent {
     }
   }
 
+  async processMessage(message) {
+    try {
+      console.log('📥 [AnalysisAgent] Processing message:', {
+        requestId: message.requestId,
+        agentType: message.agentType,
+        status: message.status,
+        hasPayload: !!message.payload
+      });
+
+      // Validate message structure
+      if (!this.validateMessage(message)) {
+        logger.warn(`${this.agentName} received invalid message:`, message);
+        return;
+      }
+
+      const { requestId, agentType, timestamp, payload, status } = message;
+      
+      logger.info(`${this.agentName} processing request ${requestId} from ${agentType}`);
+      
+      let result;
+      
+      // Handle different types of messages
+      if (agentType === 'UIAgent') {
+        // This is an initial analysis request
+        console.log('🚀 [AnalysisAgent] Processing initial analysis request from UI');
+        result = await this.initiateAnalysis(payload, requestId);
+        
+        // Only mark as processed for initial UI requests
+        if (result) {
+          this.processedRequests.set(requestId, {
+            timestamp: Date.now(),
+            result
+          });
+        }
+      } else if (status === 'success' && (agentType === 'StockDataAgent' || agentType === 'NewsSentimentAgent')) {
+        // This is data from another agent
+        console.log('📊 [AnalysisAgent] Processing data from agent:', agentType);
+        result = await this.handleAgentData(message, requestId);
+        
+        // Don't mark as processed here - handleAgentData manages its own completion state
+        // When analysis is complete, it will be handled internally
+      } else {
+        console.log('⚠️ [AnalysisAgent] Unhandled message type:', { agentType, status });
+        return;
+      }
+      
+      // Clean up old processed requests (keep only last 1000) - only for UI requests
+      if (agentType === 'UIAgent' && this.processedRequests.size > 1000) {
+        const oldestEntries = Array.from(this.processedRequests.entries())
+          .sort(([,a], [,b]) => a.timestamp - b.timestamp)
+          .slice(0, this.processedRequests.size - 1000);
+        
+        oldestEntries.forEach(([key]) => {
+          this.processedRequests.delete(key);
+        });
+      }
+      
+      if (result && agentType === 'UIAgent') {
+        logger.info(`${this.agentName} completed processing request ${requestId}`);
+      }
+      
+    } catch (error) {
+      logger.error(`${this.agentName} error processing message:`, error);
+      
+      // Send error result
+      if (message.requestId) {
+        await this.sendError(message.requestId, error);
+      }
+    }
+  }
+
   async handleRequest(payload, requestId) {
     try {
       console.log('📥 [AnalysisAgent] Received request:', { requestId, payload });
       
-      // Check if this is initial data or consolidated data from other agents
-      if (payload.agentType) {
-        console.log('📊 [AnalysisAgent] Handling agent data from:', payload.agentType);
-        return await this.handleAgentData(payload, requestId);
-      } else {
-        console.log('🚀 [AnalysisAgent] Initiating new analysis');
-        // This is the initial request to start analysis
-        return await this.initiateAnalysis(payload, requestId);
-      }
+      // This should not be called directly anymore since we override processMessage
+      console.log('🚀 [AnalysisAgent] Initiating new analysis via handleRequest');
+      return await this.initiateAnalysis(payload, requestId);
     } catch (error) {
       console.error(`💥 [AnalysisAgent] Error for request ${requestId}:`, error);
       logger.error(`AnalysisAgent error for request ${requestId}:`, error);
@@ -84,7 +149,7 @@ class AnalysisAgent extends BaseAgent {
       symbol: symbol.toUpperCase(),
       startTime: Date.now(),
       receivedData: {},
-      expectedAgents: ['StockDataAgent', 'NewsSentimentAgent', 'EconomicIndicatorAgent'],
+      expectedAgents: ['StockDataAgent', 'NewsSentimentAgent'],
       completed: false
     };
     
@@ -97,7 +162,7 @@ class AnalysisAgent extends BaseAgent {
       pendingCount: this.pendingAnalyses.size
     });
 
-    await this.sendProgress(requestId, 0, 'Starting comprehensive analysis...');
+    await this.sendProgress(requestId, 66, 'Starting comprehensive analysis...');
 
     // Start timeout timer
     setTimeout(() => {
@@ -109,11 +174,11 @@ class AnalysisAgent extends BaseAgent {
     return { status: 'analysis_initiated', requestId };
   }
 
-  async handleAgentData(payload, requestId) {
+  async handleAgentData(message, requestId) {
     console.log('📊 [AnalysisAgent] Handling agent data:', {
       requestId,
-      agentType: payload.agentType,
-      hasPayload: !!payload.payload
+      agentType: message.agentType,
+      hasPayload: !!message.payload
     });
     
     const analysis = this.pendingAnalyses.get(requestId);
@@ -129,21 +194,21 @@ class AnalysisAgent extends BaseAgent {
     }
 
     // Store the received data
-    analysis.receivedData[payload.agentType] = payload.payload;
+    analysis.receivedData[message.agentType] = message.payload;
     
     console.log('📦 [AnalysisAgent] Data stored from agent:', {
-      agentType: payload.agentType,
+      agentType: message.agentType,
       requestId,
       receivedAgents: Object.keys(analysis.receivedData),
       expectedAgents: analysis.expectedAgents
     });
     
-    logger.info(`AnalysisAgent received data from ${payload.agentType} for request ${requestId}`);
+    logger.info(`AnalysisAgent received data from ${message.agentType} for request ${requestId}`);
 
-    // Update progress
+    // Update progress - scale to 66-90% range
     const receivedCount = Object.keys(analysis.receivedData).length;
     const totalExpected = analysis.expectedAgents.length;
-    const progress = Math.min(90, (receivedCount / totalExpected) * 90);
+    const progress = Math.min(90, 66 + (receivedCount / totalExpected) * 24); // 66% + up to 24% = 90% max
     
     console.log('📈 [AnalysisAgent] Progress update:', {
       requestId,
@@ -152,7 +217,7 @@ class AnalysisAgent extends BaseAgent {
       progress: Math.round(progress)
     });
     
-    await this.sendProgress(requestId, progress, `Received data from ${payload.agentType}...`);
+    await this.sendProgress(requestId, progress, `Received data from ${message.agentType}...`);
 
     // Check if we have all the data we need
     if (receivedCount >= totalExpected) {
@@ -315,7 +380,7 @@ class AnalysisAgent extends BaseAgent {
     const scores = {
       technical: 0,
       sentiment: 0,
-      economic: 0,
+      economic: 50, // Default neutral score since we no longer use economic data
       overall: 0
     };
 
@@ -326,15 +391,15 @@ class AnalysisAgent extends BaseAgent {
       // Sentiment Score (0-100)
       scores.sentiment = this.calculateSentimentScore(newsData);
       
-      // Economic Score (0-100)
-      scores.economic = this.calculateEconomicScore(economicData);
+      // Economic Score - set to neutral since EconomicIndicatorAgent is removed
+      scores.economic = 50;
       
-      // Overall weighted score
+      // Overall weighted score - rebalanced without economic component
       const weights = config.analysis.weights;
+      const totalWeight = weights.technical + weights.sentiment;
       scores.overall = (
-        scores.technical * weights.technical +
-        scores.sentiment * weights.sentiment +
-        scores.economic * weights.economic
+        scores.technical * (weights.technical / totalWeight) +
+        scores.sentiment * (weights.sentiment / totalWeight)
       );
 
       // Round scores to 1 decimal place
@@ -523,10 +588,9 @@ class AnalysisAgent extends BaseAgent {
             socialSentiment: newsData.socialSentiment?.score,
             summary: newsData.sentimentAnalysis?.summary
           },
-          economic: {
-            regime: economicData.regimeAnalysis?.regime,
-            indicators: economicData.indicators,
-            score: scores.economic
+          overall: {
+            score: scores.overall,
+            analysis: 'Based on technical and sentiment analysis'
           }
         });
 
@@ -580,8 +644,8 @@ class AnalysisAgent extends BaseAgent {
           thresholdAdjustment = scores.overall;
           break;
         case 'longTerm':
-          // More weight on economic fundamentals
-          thresholdAdjustment = scores.economic * 0.6 + scores.technical * 0.4;
+          // More weight on technical fundamentals since economic data is no longer available
+          thresholdAdjustment = scores.technical * 0.7 + scores.sentiment * 0.3;
           break;
       }
 
@@ -622,9 +686,6 @@ class AnalysisAgent extends BaseAgent {
       if (scores.sentiment > 70) reasoning.push('Positive market sentiment');
       else if (scores.sentiment < 30) reasoning.push('Negative sentiment prevails');
 
-      if (scores.economic > 70) reasoning.push('Favorable economic environment');
-      else if (scores.economic < 30) reasoning.push('Economic headwinds present');
-
     } catch (error) {
       logger.error('Error generating recommendation:', error);
       recommendation = 'HOLD';
@@ -662,11 +723,7 @@ class AnalysisAgent extends BaseAgent {
         }
       }
 
-      // Economic risks
-      if (economicData.regimeAnalysis?.riskFactors?.length > 0) {
-        risks.factors.push(...economicData.regimeAnalysis.riskFactors);
-        riskScore += economicData.regimeAnalysis.riskFactors.length * 8;
-      }
+      // Note: Economic risks no longer assessed since EconomicIndicatorAgent has been removed
 
       // Determine overall risk level
       if (riskScore >= 70) {
@@ -741,15 +798,9 @@ class AnalysisAgent extends BaseAgent {
       if (scores.sentiment > 60) {
         insights.keyPoints.push('Market sentiment is positive');
       }
-      
-      if (scores.economic > 60) {
-        insights.keyPoints.push('Economic environment is supportive');
-      }
 
-      // Traditional market context
-      if (economicData.regimeAnalysis?.regime) {
-        insights.marketContext = `Current economic regime is ${economicData.regimeAnalysis.regime}`;
-      }
+      // Market context note
+      insights.marketContext = 'Analysis based on technical and sentiment indicators';
 
       // Enhance with LLM analysis if available
       if (this.ollamaEnabled) {
@@ -793,7 +844,7 @@ class AnalysisAgent extends BaseAgent {
     };
 
     try {
-      const totalExpected = 3; // StockDataAgent, NewsSentimentAgent, EconomicIndicatorAgent
+      const totalExpected = 2; // StockDataAgent, NewsSentimentAgent
       const receivedCount = Object.keys(receivedData).length;
       quality.coverage = Math.round((receivedCount / totalExpected) * 100);
 
@@ -801,7 +852,7 @@ class AnalysisAgent extends BaseAgent {
       if (quality.coverage < 50) {
         quality.overall = 'POOR';
         quality.issues.push('Insufficient data coverage');
-      } else if (quality.coverage < 80) {
+      } else if (quality.coverage < 100) {
         quality.overall = 'FAIR';
         quality.issues.push('Partial data coverage');
       }
@@ -812,9 +863,6 @@ class AnalysisAgent extends BaseAgent {
       }
       if (!receivedData.NewsSentimentAgent) {
         quality.issues.push('Missing sentiment analysis');
-      }
-      if (!receivedData.EconomicIndicatorAgent) {
-        quality.issues.push('Missing economic context');
       }
 
     } catch (error) {
@@ -835,7 +883,6 @@ class AnalysisAgent extends BaseAgent {
 CURRENT SCORES:
 - Technical: ${scores.technical}/100
 - Sentiment: ${scores.sentiment}/100  
-- Economic: ${scores.economic}/100
 - Overall: ${scores.overall}/100
 
 MARKET DATA:
@@ -846,10 +893,6 @@ MARKET DATA:
 SENTIMENT SUMMARY:
 - News Sentiment: ${newsData.sentimentAnalysis?.sentimentScore || 'N/A'}
 - Article Count: ${newsData.sentimentAnalysis?.totalArticles || 'N/A'}
-
-ECONOMIC ENVIRONMENT:
-- Regime: ${economicData.regimeAnalysis?.regime || 'N/A'}
-- Confidence: ${economicData.regimeAnalysis?.confidence || 'N/A'}
 
 Provide a comprehensive market context analysis that explains:
 1. Current market position and trends
@@ -884,10 +927,6 @@ TECHNICAL DATA:
 SENTIMENT DATA:
 - Sentiment Score: ${newsData.sentimentAnalysis?.sentimentScore || 'N/A'}
 - Sentiment Trend: ${newsData.sentimentAnalysis?.sentimentTrend || 'N/A'}
-
-ECONOMIC DATA:
-- Economic Regime: ${economicData.regimeAnalysis?.regime || 'N/A'}
-- Risk Factors: ${JSON.stringify(economicData.regimeAnalysis?.riskFactors || [])}
 
 Identify and analyze:
 1. Primary risk factors
@@ -930,14 +969,12 @@ Format as JSON:
 ANALYSIS SCORES:
 - Technical: ${scores.technical}/100
 - Sentiment: ${scores.sentiment}/100
-- Economic: ${scores.economic}/100
 - Overall: ${scores.overall}/100
 
 KEY DATA POINTS:
 - Current Price: $${stockData.currentPrice?.price || 'N/A'}
 - Technical Indicators: ${JSON.stringify(this.getKeyIndicators(stockData))}
 - Sentiment Summary: ${newsData.sentimentAnalysis?.summary || 'N/A'}
-- Economic Regime: ${economicData.regimeAnalysis?.regime || 'N/A'}
 
 Provide:
 1. Enhanced summary that explains the investment thesis

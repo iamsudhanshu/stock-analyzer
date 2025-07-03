@@ -16,7 +16,6 @@ const config = {
     newsApi: process.env.NEWS_API_KEY,
     newsData: process.env.NEWSDATA_API_KEY,
     webz: process.env.WEBZ_API_KEY,
-    fred: process.env.FRED_API_KEY,
     stockTwits: process.env.STOCKTWITS_ACCESS_TOKEN,
     twitter: process.env.TWITTER_BEARER_TOKEN,
     twinword: process.env.TWINWORD_API_KEY
@@ -43,8 +42,7 @@ const config = {
     models: {
       sentiment: process.env.OLLAMA_SENTIMENT_MODEL || 'llama3.1:8b',
       analysis: process.env.OLLAMA_ANALYSIS_MODEL || 'llama3.1:8b',
-      technical: process.env.OLLAMA_TECHNICAL_MODEL || 'llama3.1:8b',
-      economic: process.env.OLLAMA_ECONOMIC_MODEL || 'llama3.1:8b'
+      technical: process.env.OLLAMA_TECHNICAL_MODEL || 'llama3.1:8b'
     },
     
     // Temperature settings for different tasks
@@ -52,7 +50,6 @@ const config = {
       sentiment: 0.3,
       analysis: 0.4,
       technical: 0.3,
-      economic: 0.3,
       general: 0.7
     },
     
@@ -73,7 +70,7 @@ const config = {
 
   // Logging Configuration
   logging: {
-    level: process.env.LOG_LEVEL || 'info'
+    level: process.env.LOG_LEVEL || 'debug'
   },
 
   // Rate Limiting
@@ -86,17 +83,15 @@ const config = {
   cache: {
     defaultTTL: parseInt(process.env.CACHE_TTL_SECONDS) || 300,
     stockDataTTL: parseInt(process.env.STOCK_DATA_CACHE_TTL) || 60,
-    newsTTL: parseInt(process.env.NEWS_CACHE_TTL) || 1800,
-    economicDataTTL: parseInt(process.env.ECONOMIC_DATA_CACHE_TTL) || 3600
+    newsTTL: parseInt(process.env.NEWS_CACHE_TTL) || 1800
   },
 
   // Analysis Configuration
   analysis: {
     confidenceThreshold: parseFloat(process.env.CONFIDENCE_THRESHOLD) || 0.6,
     weights: {
-      sentiment: parseFloat(process.env.SENTIMENT_WEIGHT) || 0.3,
-      technical: parseFloat(process.env.TECHNICAL_WEIGHT) || 0.4,
-      economic: parseFloat(process.env.ECONOMIC_WEIGHT) || 0.3
+      sentiment: parseFloat(process.env.SENTIMENT_WEIGHT) || 0.4,
+      technical: parseFloat(process.env.TECHNICAL_WEIGHT) || 0.6
     }
   },
 
@@ -104,7 +99,6 @@ const config = {
   queues: {
     stockData: 'stock_data_queue',
     news: 'news_queue',
-    economic: 'economic_queue',
     analysis: 'analysis_queue',
     ui: 'ui_queue'
   },
@@ -117,7 +111,6 @@ const config = {
     newsApi: 'https://newsapi.org/v2',
     newsData: 'https://newsdata.io/api/1',
     webz: 'https://api.webz.io/newsApiLite',
-    fred: 'https://api.stlouisfed.org/fred',
     stockTwits: 'https://api.stocktwits.com/api/2',
     twitter: 'https://api.twitter.com/2',
     twinword: 'https://api.twinword.com/v2'

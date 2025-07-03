@@ -12,6 +12,8 @@ function App() {
   const [error, setError] = useState(null);
   const [currentSymbol, setCurrentSymbol] = useState('');
   const [showWelcome, setShowWelcome] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState('');
 
   const handleAnalysisStart = (symbol) => {
     console.log('🎯 [App] Analysis started for symbol:', symbol);
@@ -20,6 +22,8 @@ function App() {
     setError(null);
     setAnalysisData(null);
     setShowWelcome(false);
+    setProgress(0);
+    setProgressMessage('Initializing analysis...');
     console.log('📊 [App] State updated - loading started');
   };
 
@@ -30,7 +34,6 @@ function App() {
       hasAnalysis: !!data?.analysis,
       hasStockData: !!data?.stockData,
       hasNewsSentiment: !!data?.newsSentiment,
-      hasEconomicData: !!data?.economicData,
       hasRecommendation: !!data?.recommendation,
       timestamp: data?.timestamp
     });
@@ -54,7 +57,15 @@ function App() {
     setError(null);
     setCurrentSymbol('');
     setShowWelcome(true);
+    setProgress(0);
+    setProgressMessage('');
     console.log('✅ [App] State reset completed');
+  };
+
+  const handleProgressUpdate = (progressData) => {
+    console.log('📊 [App] Progress update received:', progressData);
+    setProgress(progressData.progress || 0);
+    setProgressMessage(progressData.message || 'Processing...');
   };
 
   // Auto-hide welcome after some time if no interaction
@@ -119,7 +130,7 @@ function App() {
             <div className="max-w-5xl mx-auto">
               <p className="text-xl text-gray-700 leading-relaxed mb-8 font-medium">
                 Experience next-generation investment analysis powered by multi-agent AI technology. 
-                Get comprehensive insights covering technical indicators, market sentiment, and economic factors.
+                Get comprehensive insights covering technical indicators and market sentiment analysis.
               </p>
               
               {/* Feature highlights */}
@@ -152,6 +163,7 @@ function App() {
                 onAnalysisStart={handleAnalysisStart}
                 onAnalysisComplete={handleAnalysisComplete}
                 onAnalysisError={handleAnalysisError}
+                onProgressUpdate={handleProgressUpdate}
                 isLoading={isLoading}
                 onReset={handleReset}
               />
@@ -188,7 +200,11 @@ function App() {
             {/* Loading Indicator */}
             {isLoading && (
               <div className="slide-up">
-                <LoadingIndicator symbol={currentSymbol} />
+                <LoadingIndicator 
+                  symbol={currentSymbol} 
+                  progress={progress}
+                  message={progressMessage}
+                />
               </div>
             )}
 
@@ -257,10 +273,10 @@ function App() {
                           <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-2xl flex items-center justify-center mr-4">
                             <Layers className="h-6 w-6 text-white" />
                           </div>
-                          <span className="text-xl font-bold text-gray-800">Economic Context</span>
+                          <span className="text-xl font-bold text-gray-800">Market Intelligence</span>
                         </div>
                         <p className="text-gray-600 leading-relaxed">
-                          Market regime assessment and comprehensive economic indicator analysis
+                          Advanced market analysis combining technical and sentiment insights
                         </p>
                       </div>
                       

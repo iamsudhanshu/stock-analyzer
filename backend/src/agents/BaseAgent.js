@@ -82,6 +82,12 @@ class BaseAgent {
 
   async processMessage(message) {
     try {
+      // Message should already be parsed by RedisClient
+      if (!message || typeof message !== 'object') {
+        logger.error(`${this.agentName} received invalid message type:`, typeof message);
+        return;
+      }
+
       // Validate message structure
       if (!this.validateMessage(message)) {
         logger.warn(`${this.agentName} received invalid message:`, message);
@@ -96,10 +102,23 @@ class BaseAgent {
         return;
       }
 
+      console.log(`📥 [${this.agentName}] Processing message:`, {
+        requestId,
+        agentType,
+        hasPayload: !!payload
+      });
+
       logger.info(`${this.agentName} processing request ${requestId}`);
       
       // Process the request
       const result = await this.handleRequest(payload, requestId);
+      
+      console.log(`🔄 [${this.agentName}] HandleRequest completed:`, {
+        requestId,
+        hasResult: !!result,
+        resultType: typeof result,
+        resultKeys: result ? Object.keys(result) : []
+      });
       
       if (result) {
         // Mark as processed
@@ -120,16 +139,21 @@ class BaseAgent {
         }
 
         // Send result to output queues
+        console.log(`📤 [${this.agentName}] About to send result to output queues`);
         await this.sendResult(requestId, result);
         
         logger.info(`${this.agentName} completed processing request ${requestId}`);
+        console.log(`✅ [${this.agentName}] Request processing completed successfully`);
+      } else {
+        console.log(`⚠️ [${this.agentName}] No result returned from handleRequest`);
       }
       
     } catch (error) {
       logger.error(`${this.agentName} error processing message:`, error);
+      console.error(`💥 [${this.agentName}] Error processing message:`, error);
       
       // Send error result
-      if (message.requestId) {
+      if (message && message.requestId) {
         await this.sendError(message.requestId, error);
       }
     }
@@ -154,10 +178,23 @@ class BaseAgent {
       payload: result
     };
 
+    console.log(`📤 [${this.agentName}] Sending result to output queues:`, {
+      requestId,
+      outputQueues: this.outputQueues,
+      hasPayload: !!result,
+      payloadKeys: result ? Object.keys(result) : []
+    });
+
     // Send to all output queues
     for (const queue of this.outputQueues) {
-      await redisClient.publish(queue, message);
-      logger.debug(`${this.agentName} sent result to ${queue}`, { requestId });
+      try {
+        await redisClient.publish(queue, message);
+        console.log(`✅ [${this.agentName}] Successfully sent result to ${queue}`, { requestId });
+        logger.debug(`${this.agentName} sent result to ${queue}`, { requestId });
+      } catch (error) {
+        console.error(`❌ [${this.agentName}] Failed to send result to ${queue}:`, error);
+        logger.error(`Failed to send result to ${queue}:`, error);
+      }
     }
   }
 
@@ -175,8 +212,14 @@ class BaseAgent {
 
     // Send to all output queues
     for (const queue of this.outputQueues) {
-      await redisClient.publish(queue, message);
-      logger.debug(`${this.agentName} sent error to ${queue}`, { requestId, error: error.message });
+      try {
+        await redisClient.publish(queue, message);
+        console.log(`❌ [${this.agentName}] Successfully sent error to ${queue}`, { requestId });
+        logger.debug(`${this.agentName} sent error to ${queue}`, { requestId, error: error.message });
+      } catch (error) {
+        console.error(`💥 [${this.agentName}] Failed to send error to ${queue}:`, error);
+        logger.error(`Failed to send error to ${queue}:`, error);
+      }
     }
   }
 
@@ -190,8 +233,37 @@ class BaseAgent {
       message
     };
 
+    console.log(`📊 [${this.agentName}] Sending progress update:`, {
+      requestId,
+      progress,
+      message,
+      queueTarget: config.queues.ui
+    });
+
     // Send progress to UI queue
     await redisClient.publish(config.queues.ui, progressMessage);
+    
+    console.log(`✅ [${this.agentName}] Progress message published to UI queue`);
+  }
+
+  async publishMessage(queue, message) {
+    try {
+      console.log(`📤 [${this.agentName}] Publishing message to ${queue}:`, {
+        requestId: message.requestId,
+        type: message.type,
+        status: message.status,
+        hasPayload: !!message.payload
+      });
+
+      await redisClient.publish(queue, message);
+      
+      console.log(`✅ [${this.agentName}] Successfully published message to ${queue}`);
+      logger.debug(`${this.agentName} published message to ${queue}`, { requestId: message.requestId });
+    } catch (error) {
+      console.error(`❌ [${this.agentName}] Failed to publish message to ${queue}:`, error);
+      logger.error(`Failed to publish message to ${queue}:`, error);
+      throw error;
+    }
   }
 
   // Abstract method to be implemented by subclasses

@@ -104,6 +104,10 @@ export const SocketProvider = ({ children }) => {
       return () => {};
     }
 
+    // IMPORTANT: Subscribe to the specific request room on the backend
+    console.log(`📡 [SocketContext] Emitting subscribe event for requestId: ${requestId}`);
+    socket.emit('subscribe', { requestId });
+
     const handleProgress = (data) => {
       console.log(`📊 [SocketContext] Progress for ${requestId}:`, data);
       if (data.requestId === requestId && callbacks.onProgress) {
@@ -125,19 +129,30 @@ export const SocketProvider = ({ children }) => {
       }
     };
 
+    const handleSubscribed = (data) => {
+      console.log(`✅ [SocketContext] Successfully subscribed to room for ${requestId}:`, data);
+    };
+
     // Subscribe to events
     socket.on('progress', handleProgress);
     socket.on('analysisCompleted', handleCompleted);
     socket.on('analysisError', handleError);
+    socket.on('subscribed', handleSubscribed);
 
     console.log(`✅ [SocketContext] Successfully subscribed to events for ${requestId}`);
 
     // Return unsubscribe function
     return () => {
       console.log(`🔕 [SocketContext] Unsubscribing from analysis updates for request:`, requestId);
+      
+      // Unsubscribe from the backend room
+      socket.emit('unsubscribe', { requestId });
+      
+      // Remove event listeners
       socket.off('progress', handleProgress);
       socket.off('analysisCompleted', handleCompleted);
       socket.off('analysisError', handleError);
+      socket.off('subscribed', handleSubscribed);
     };
   }, [socket]);
 

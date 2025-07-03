@@ -122,7 +122,7 @@ class RedisClient {
     try {
       const serializedMessage = JSON.stringify(message);
       await this.publisher.publish(channel, serializedMessage);
-      logger.debug(`Published message to channel ${channel}`, { message });
+      logger.debug(`Published message to channel ${channel}`, { serializedMessage });
       return true;
     } catch (error) {
       logger.error(`Error publishing to channel ${channel}:`, error);

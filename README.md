@@ -290,7 +290,6 @@ stock-analysis-app/
 │   │   │   ├── BaseAgent.js        # Abstract base class for all agents
 │   │   │   ├── stockDataAgent.js   # Stock data & technical analysis
 │   │   │   ├── newsSentimentAgent.js # News & sentiment processing
-│   │   │   ├── economicIndicatorAgent.js # Economic data analysis
 │   │   │   ├── analysisAgent.js    # Investment recommendations engine
 │   │   │   └── uiAgent.js         # REST API & WebSocket management
 │   │   ├── 📂 config/             # Configuration management

@@ -7,6 +7,7 @@ const StockSearchForm = ({
   onAnalysisStart,
   onAnalysisComplete,
   onAnalysisError,
+  onProgressUpdate,
   isLoading,
   onReset
 }) => {
@@ -84,6 +85,7 @@ const StockSearchForm = ({
       const unsubscribe = subscribeToAnalysis(requestId, {
         onProgress: (data) => {
           console.log('📊 [StockSearchForm] Progress update:', data);
+          onProgressUpdate(data);
         },
         onCompleted: (data) => {
           console.log('✅ [StockSearchForm] Analysis completed successfully:', data);
@@ -335,7 +337,7 @@ const StockSearchForm = ({
             </div>
             <div className="flex items-center">
               <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-2"></div>
-              <span>Economic regime assessment</span>
+              <span>Comprehensive market intelligence</span>
             </div>
             <div className="flex items-center">
               <div className="w-1.5 h-1.5 bg-orange-500 rounded-full mr-2"></div>

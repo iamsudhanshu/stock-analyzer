@@ -23,7 +23,6 @@ const AnalysisResults = ({ data }) => {
   const [expandedSections, setExpandedSections] = useState({
     technical: true,
     sentiment: true,
-    economic: true,
     risk: true
   });
 
@@ -36,7 +35,6 @@ const AnalysisResults = ({ data }) => {
     analysis,
     stockData,
     newsSentiment,
-    economicData,
     recommendation,
     timestamp
   } = data;
@@ -320,69 +318,6 @@ const AnalysisResults = ({ data }) => {
                   </div>
                 </div>
               )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Economic Analysis Section */}
-      {economicData && (
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-          <div 
-            className="p-6 bg-gradient-to-r from-green-50 to-emerald-100 border-b border-gray-200 cursor-pointer hover:bg-gradient-to-r hover:from-green-100 hover:to-emerald-200 transition-all duration-300"
-            onClick={() => toggleSection('economic')}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="p-2 bg-green-600 rounded-lg mr-3">
-                  <DollarSign className="h-6 w-6 text-white" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-800">Economic Environment</h3>
-              </div>
-              {expandedSections.economic ? (
-                <ChevronUp className="h-5 w-5 text-gray-600" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-gray-600" />
-              )}
-            </div>
-          </div>
-          
-          {expandedSections.economic && (
-            <div className="p-6 slide-up">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {economicData.regime && (
-                  <div className={`p-6 rounded-xl border-2 shadow-lg hover-lift ${getStatusColor(economicData.regime)}`}>
-                    <h4 className="text-lg font-semibold mb-2">Market Regime</h4>
-                    <p className="text-2xl font-bold">{economicData.regime}</p>
-                    {economicData.regimeConfidence && (
-                      <p className="text-sm font-medium mt-2">
-                        Confidence: {Math.round(economicData.regimeConfidence * 100)}%
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {economicData.indicators && (
-                  <div className="bg-gradient-to-r from-gray-50 to-green-50 rounded-xl p-6">
-                    <h4 className="font-semibold text-gray-700 mb-4 flex items-center">
-                      <Activity className="h-5 w-5 mr-2 text-green-600" />
-                      Key Economic Indicators
-                    </h4>
-                    <div className="space-y-3">
-                      {Object.entries(economicData.indicators).map(([key, value]) => (
-                        <div key={key} className="flex justify-between items-center p-3 bg-white rounded-lg shadow-sm">
-                          <span className="text-gray-600 font-medium">
-                            {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                          </span>
-                          <span className="font-semibold text-gray-900">
-                            {typeof value === 'number' ? value.toFixed(2) : value}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
           )}
         </div>

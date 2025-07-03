@@ -18,9 +18,9 @@ class NewsSentimentAgent extends BaseAgent {
     this.ollama = new OllamaService();
     this.ollamaEnabled = false;
     this.newsProviders = [
-      { name: 'newsApi', priority: 1, rateLimit: { requests: 100, windowMs: 86400000 } },
-      { name: 'newsData', priority: 2, rateLimit: { requests: 2000, windowMs: 86400000 } },
-      { name: 'webz', priority: 3, rateLimit: { requests: 1000, windowMs: 2592000000 } }
+   //   { name: 'newsApi', priority: 1, rateLimit: { requests: 100, windowMs: 86400000 } },
+      { name: 'newsData', priority: 1, rateLimit: { requests: 2000, windowMs: 86400000 } }
+   //   { name: 'webz', priority: 3, rateLimit: { requests: 1000, windowMs: 2592000000 } }
     ];
     
     // Initialize Ollama service
@@ -49,22 +49,22 @@ class NewsSentimentAgent extends BaseAgent {
         throw new Error('Symbol is required');
       }
 
-      await this.sendProgress(requestId, 10, 'Starting news collection...');
+      await this.sendProgress(requestId, 35, 'Starting news collection...');
 
       // Fetch news articles
       const articles = await this.fetchNews(symbol, requestId);
       
-      await this.sendProgress(requestId, 40, 'Analyzing sentiment...');
+      await this.sendProgress(requestId, 50, 'Analyzing sentiment...');
 
       // Analyze sentiment - enhanced with LLM if available
       const sentimentAnalysis = await this.analyzeSentiment(articles, symbol);
       
-      await this.sendProgress(requestId, 70, 'Processing social media signals...');
+      await this.sendProgress(requestId, 60, 'Processing social media signals...');
 
       // Get social media sentiment (if available)
       const socialSentiment = await this.fetchSocialSentiment(symbol, requestId);
       
-      await this.sendProgress(requestId, 100, 'News sentiment analysis complete');
+      await this.sendProgress(requestId, 66, 'News sentiment analysis complete');
 
       return {
         symbol: symbol.toUpperCase(),

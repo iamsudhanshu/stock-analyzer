@@ -15,8 +15,8 @@ class StockDataAgent extends BaseAgent {
     );
     
     this.apiProviders = [
-      { name: 'alphaVantage', priority: 1, rateLimit: { requests: 5, windowMs: 60000 } },
-      { name: 'finnhub', priority: 2, rateLimit: { requests: 60, windowMs: 60000 } },
+     // { name: 'alphaVantage', priority: 1, rateLimit: { requests: 5, windowMs: 60000 } },
+     // { name: 'finnhub', priority: 1, rateLimit: { requests: 60, windowMs: 60000 } }
       { name: 'twelveData', priority: 3, rateLimit: { requests: 800, windowMs: 86400000 } }
     ];
     
@@ -49,22 +49,22 @@ class StockDataAgent extends BaseAgent {
         throw new Error('Symbol is required');
       }
 
-      await this.sendProgress(requestId, 10, 'Starting stock data collection...');
+      await this.sendProgress(requestId, 3, 'Starting stock data collection...');
 
       // Get current price data
       const currentData = await this.getCurrentPrice(symbol, requestId);
       
-      await this.sendProgress(requestId, 30, 'Fetching historical data...');
+      await this.sendProgress(requestId, 10, 'Fetching historical data...');
 
       // Get historical data for different periods
       const historicalData = await this.getHistoricalData(symbol, requestId);
       
-      await this.sendProgress(requestId, 60, 'Calculating technical indicators...');
+      await this.sendProgress(requestId, 20, 'Calculating technical indicators...');
 
       // Calculate technical indicators
       const technicalIndicators = this.calculateTechnicalIndicators(historicalData);
       
-      await this.sendProgress(requestId, 80, 'Analyzing volume data...');
+      await this.sendProgress(requestId, 26, 'Analyzing volume data...');
 
       // Get volume analysis
       const volumeAnalysis = this.analyzeVolume(historicalData);
@@ -73,14 +73,14 @@ class StockDataAgent extends BaseAgent {
       let patternAnalysis = null;
       if (this.ollamaEnabled) {
         try {
-          await this.sendProgress(requestId, 90, 'Analyzing chart patterns with AI...');
+          await this.sendProgress(requestId, 30, 'Analyzing chart patterns with AI...');
           patternAnalysis = await this.analyzeChartPatterns(symbol, historicalData, technicalIndicators);
         } catch (error) {
           logger.warn(`LLM pattern analysis failed for ${symbol}:`, error.message);
         }
       }
       
-      await this.sendProgress(requestId, 100, 'Stock data analysis complete');
+      await this.sendProgress(requestId, 33, 'Stock data analysis complete');
 
       return {
         symbol: symbol.toUpperCase(),
@@ -196,15 +196,58 @@ class StockDataAgent extends BaseAgent {
       return cachedData;
     }
 
-    // Generate mock data if no API keys are available
-    if (!config.apiKeys.alphaVantage && !config.apiKeys.finnhub && !config.apiKeys.twelveData) {
-      logger.warn('No API keys configured, generating mock historical data');
-      const mockData = this.generateMockHistoricalData(symbol);
-      await this.setCachedData(cacheKey, mockData, 300);
-      return mockData;
+    // Try each API provider in order of priority
+    for (const provider of this.apiProviders) {
+      try {
+        // Check rate limiting
+        const canProceed = await this.checkRateLimit(
+          provider.name,
+          provider.rateLimit.requests,
+          provider.rateLimit.windowMs
+        );
+
+        if (!canProceed) {
+          logger.warn(`Rate limit exceeded for ${provider.name}`);
+          continue;
+        }
+
+        let historicalData;
+        
+        switch (provider.name) {
+          case 'alphaVantage':
+            if (config.apiKeys.alphaVantage) {
+              historicalData = await this.fetchAlphaVantageHistorical(symbol);
+            }
+            break;
+          case 'finnhub':
+            if (config.apiKeys.finnhub) {
+              historicalData = await this.fetchFinnhubHistorical(symbol);
+            }
+            break;
+          case 'twelveData':
+            if (config.apiKeys.twelveData) {
+              historicalData = await this.fetchTwelveDataHistorical(symbol);
+            }
+            break;
+        }
+
+        if (historicalData && historicalData.length > 0) {
+          // Cache for 5 minutes
+          await this.setCachedData(cacheKey, historicalData, 300);
+          return historicalData;
+        }
+
+      } catch (error) {
+        logger.warn(`Failed to fetch historical data from ${provider.name}:`, error.message);
+        continue;
+      }
     }
 
-    throw new Error(`Unable to fetch historical data for ${symbol} - API keys required`);
+    // If all APIs failed or no API keys available, generate mock data
+    logger.warn(`Unable to fetch real historical data for ${symbol}, generating mock data`);
+    const mockData = this.generateMockHistoricalData(symbol);
+    await this.setCachedData(cacheKey, mockData, 300);
+    return mockData;
   }
 
   generateMockHistoricalData(symbol) {
@@ -533,6 +576,180 @@ Provide JSON response:
       logger.error('Volume pattern analysis failed:', error);
       return null;
     }
+  }
+
+  // ============ API Fetch Methods ============
+
+  async fetchAlphaVantageHistorical(symbol) {
+    if (!config.apiKeys.alphaVantage) {
+      throw new Error('Alpha Vantage API key not configured');
+    }
+
+    const response = await axios.get(config.apiEndpoints.alphaVantage, {
+      params: {
+        function: 'TIME_SERIES_DAILY',
+        symbol,
+        apikey: config.apiKeys.alphaVantage,
+        outputsize: 'compact' // Last 100 data points
+      },
+      timeout: 10000
+    });
+
+    const timeSeries = response.data['Time Series (Daily)'];
+    if (!timeSeries) {
+      throw new Error('No historical data received from Alpha Vantage');
+    }
+
+    const data = [];
+    for (const [date, values] of Object.entries(timeSeries)) {
+      data.push({
+        date,
+        open: parseFloat(values['1. open']),
+        high: parseFloat(values['2. high']),
+        low: parseFloat(values['3. low']),
+        close: parseFloat(values['4. close']),
+        volume: parseInt(values['5. volume'])
+      });
+    }
+
+    // Sort by date (oldest first)
+    return data.sort((a, b) => new Date(a.date) - new Date(b.date));
+  }
+
+  async fetchFinnhubCurrent(symbol) {
+    if (!config.apiKeys.finnhub) {
+      throw new Error('Finnhub API key not configured');
+    }
+
+    const response = await axios.get(`${config.apiEndpoints.finnhub}/quote`, {
+      params: {
+        symbol,
+        token: config.apiKeys.finnhub
+      },
+      timeout: 30000
+    });
+
+    const quote = response.data;
+    if (!quote || quote.c === undefined) {
+      throw new Error('No quote data received from Finnhub');
+    }
+
+    logger.info('StockDataAgent Data======>', quote);
+    return {
+      price: quote.c, // Current price
+      change: quote.d, // Change
+      changePercent: quote.dp, // Percent change
+      high: quote.h, // High price of the day
+      low: quote.l, // Low price of the day
+      open: quote.o, // Open price of the day
+      previousClose: quote.pc, // Previous close price
+      timestamp: new Date(quote.t * 1000).toISOString(), // Unix timestamp
+      provider: 'finnhub'
+    };
+  }
+
+  async fetchFinnhubHistorical(symbol) {
+    if (!config.apiKeys.finnhub) {
+      throw new Error('Finnhub API key not configured');
+    }
+
+    const toDate = Math.floor(Date.now() / 1000);
+    const fromDate = toDate - (100 * 24 * 60 * 60); // 100 days ago
+
+    const response = await axios.get(`${config.apiEndpoints.finnhub}/stock/candle`, {
+      params: {
+        symbol,
+        resolution: 'D',
+        from: fromDate,
+        to: toDate,
+        token: config.apiKeys.finnhub
+      },
+      timeout: 10000
+    });
+
+    const data = response.data;
+    if (!data || data.s !== 'ok' || !data.c) {
+      throw new Error('No historical data received from Finnhub');
+    }
+
+    const historicalData = [];
+    for (let i = 0; i < data.c.length; i++) {
+      historicalData.push({
+        date: moment(data.t[i] * 1000).format('YYYY-MM-DD'),
+        open: data.o[i],
+        high: data.h[i],
+        low: data.l[i],
+        close: data.c[i],
+        volume: data.v[i]
+      });
+    }
+
+    return historicalData;
+  }
+
+  async fetchTwelveDataCurrent(symbol) {
+    if (!config.apiKeys.twelveData) {
+      throw new Error('Twelve Data API key not configured');
+    }
+
+    const response = await axios.get(`${config.apiEndpoints.twelveData}/quote`, {
+      params: {
+        symbol,
+        apikey: config.apiKeys.twelveData
+      },
+      timeout: 10000
+    });
+
+    const quote = response.data;
+    if (!quote || !quote.close) {
+      throw new Error('No quote data received from Twelve Data');
+    }
+
+    return {
+      price: parseFloat(quote.close),
+      change: parseFloat(quote.change),
+      changePercent: parseFloat(quote.percent_change),
+      high: parseFloat(quote.high),
+      low: parseFloat(quote.low),
+      open: parseFloat(quote.open),
+      previousClose: parseFloat(quote.previous_close),
+      timestamp: new Date(quote.datetime).toISOString(),
+      volume: parseInt(quote.volume),
+      provider: 'twelveData'
+    };
+  }
+
+  async fetchTwelveDataHistorical(symbol) {
+    if (!config.apiKeys.twelveData) {
+      throw new Error('Twelve Data API key not configured');
+    }
+
+    const response = await axios.get(`${config.apiEndpoints.twelveData}/time_series`, {
+      params: {
+        symbol,
+        interval: '1day',
+        outputsize: 100,
+        apikey: config.apiKeys.twelveData
+      },
+      timeout: 10000
+    });
+
+    const data = response.data;
+    if (!data || !data.values) {
+      throw new Error('No historical data received from Twelve Data');
+    }
+
+    const historicalData = data.values.map(item => ({
+      date: item.datetime,
+      open: parseFloat(item.open),
+      high: parseFloat(item.high),
+      low: parseFloat(item.low),
+      close: parseFloat(item.close),
+      volume: parseInt(item.volume)
+    }));
+
+    // Sort by date (oldest first)
+    return historicalData.sort((a, b) => new Date(a.date) - new Date(b.date));
   }
 }
 

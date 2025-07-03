@@ -8,10 +8,9 @@
     "dev": "nodemon src/index.js",
     "build": "echo 'No build step needed for Node.js'",
     "test": "jest",
-    "start:agents": "concurrently \"npm run start:stock-agent\" \"npm run start:news-agent\" \"npm run start:economic-agent\" \"npm run start:analysis-agent\" \"npm run start:ui-agent\"",
+    "start:agents": "concurrently \"npm run start:stock-agent\" \"npm run start:news-agent\" \"npm run start:analysis-agent\" \"npm run start:ui-agent\"",
     "start:stock-agent": "node src/agents/stockDataAgent.js",
     "start:news-agent": "node src/agents/newsSentimentAgent.js",
-    "start:economic-agent": "node src/agents/economicIndicatorAgent.js",
     "start:analysis-agent": "node src/agents/analysisAgent.js",
     "start:ui-agent": "node src/agents/uiAgent.js"
   },
