@@ -11,6 +11,9 @@ This application has been **revolutionized with Ollama integration**, transformi
 - 💡 **Natural Language Reasoning**: Investment recommendations with detailed explanations
 - 🎯 **Risk Assessment AI**: Sophisticated risk analysis with mitigation strategies
 - 🔐 **Complete Privacy**: All AI processing runs locally on your machine
+- 📊 **Enhanced Data Analysis**: Advanced market data, options flow, and institutional insights
+- 📈 **Professional Technical Analysis**: Elliott Wave, Fibonacci, and advanced chart patterns
+- 📄 **Institutional-Grade Reports**: Comprehensive investment reports with export capabilities
 
 ## 🏗️ Architecture Overview
 
@@ -18,6 +21,9 @@ This application implements an **AI-enhanced multi-agent architecture** where sp
 
 - **AI-Enhanced Data Agents**: Fetch and intelligently analyze market data and news sentiment
 - **AI-Powered Analysis Agent**: Consolidates insights and generates AI-reasoned investment recommendations  
+- **Enhanced Data Agents**: Advanced market data, options flow, and institutional analysis
+- **Advanced Technical Agent**: Professional-grade technical analysis with Elliott Wave and Fibonacci
+- **Report Generator Agent**: Comprehensive investment reports with export capabilities
 - **UI Agent**: Manages web interface and real-time communication
 - **Ollama AI Layer**: Local LLM processing for enhanced intelligence
 - **Message Bus**: Redis pub/sub enables seamless inter-agent and AI communication
@@ -26,10 +32,13 @@ This application implements an **AI-enhanced multi-agent architecture** where sp
 
 ✅ **Multi-Source Data Integration** - Real-time stock data and financial news  
 ✅ **Advanced Technical Analysis** - 20+ technical indicators (SMA, RSI, MACD, Bollinger Bands)  
+✅ **Enhanced Market Data** - Options flow, institutional holdings, insider trading, analyst ratings  
+✅ **Professional Technical Analysis** - Elliott Wave, Fibonacci retracements, advanced chart patterns  
 ✅ **Sentiment Analysis** - News and social media sentiment using VADER and NLP  
 ✅ **AI-Powered Recommendations** - Investment advice for short/mid/long-term horizons  
-✅ **Real-Time Updates** - Live progress tracking via WebSocket with optimized 3-stage progress bar  
-✅ **Professional UI** - Modern, responsive React interface  
+✅ **Real-Time Updates** - Live progress tracking via WebSocket with optimized multi-stage progress bar  
+✅ **Professional UI** - Modern, responsive React interface with debug panel  
+✅ **Institutional-Grade Reports** - Comprehensive investment reports with PDF export  
 ✅ **Robust Architecture** - Error handling, rate limiting, caching, fallback mechanisms  
 🧠 **AI-Powered Intelligence** - Local LLM integration with Ollama for enhanced analysis  
 🔐 **Complete Privacy** - All AI processing runs locally, no data sharing  
@@ -53,7 +62,7 @@ graph TB
     
     subgraph "🧠 Local AI Layer"
         Ollama[Ollama Service<br/>Local LLM Server]
-        LLaMA[llama4:maverick<br/>Financial Analysis Model]
+        LLaMA[llama3.1:8b<br/>Financial Analysis Model]
         Mistral[mistral:7b<br/>Fast Processing Model]
         AICache[(AI Response Cache)]
     end
@@ -106,6 +115,112 @@ graph TB
     style Ollama fill:#e1f5fe,stroke:#01579b,stroke-width:2px
     style StockAI fill:#f3e5f5,stroke:#4a148c
     style NewsAI fill:#f3e5f5,stroke:#4a148c
+    style AIAnalysis fill:#f3e5f5,stroke:#4a148c
+    style LLaMA fill:#e8f5e8,stroke:#1b5e20
+    style Mistral fill:#e8f5e8,stroke:#1b5e20
+    style Progress fill:#fff3e0,stroke:#e65100
+```
+
+## 🧩 Enhanced Multi-Agent Architecture
+
+The application now features an **expanded 8-agent system** with specialized capabilities:
+
+```mermaid
+graph TB
+    subgraph "Frontend Layer"
+        UI[React Frontend<br/>Debug Panel]
+        WS[WebSocket Client]
+        Progress[Multi-Stage Progress Bar<br/>Stock → News → Enhanced → Technical → Report]
+    end
+    
+    subgraph "Backend Layer"
+        UIAgent[UI Agent<br/>Express + Socket.io]
+        Redis[(Redis<br/>Message Bus + Cache)]
+    end
+    
+    subgraph "🧠 Local AI Layer"
+        Ollama[Ollama Service<br/>Local LLM Server]
+        LLaMA[llama3.1:8b<br/>Financial Analysis Model]
+        Mistral[mistral:7b<br/>Fast Processing Model]
+        AICache[(AI Response Cache)]
+    end
+    
+    subgraph "Core Analysis Layer"
+        AnalysisAgent[Analysis Agent<br/>🤖 AI-Powered Investment Logic<br/>Master Coordinator]
+        AIAnalysis[Market Context AI<br/>Investment Reasoning<br/>Risk Assessment]
+    end
+    
+    subgraph "Data Collection Agents"
+        StockAgent[Stock Data Agent<br/>📈 Technical Analysis + AI Patterns]
+        StockAI[Chart Pattern AI<br/>Support/Resistance<br/>Signal Analysis]
+        
+        NewsAgent[News Sentiment Agent<br/>📰 NLP + AI Context Analysis]
+        NewsAI[Sentiment AI<br/>Market Context<br/>Theme Extraction]
+        
+        EnhancedAgent[Enhanced Data Agent<br/>📊 Options + Institutional Data]
+        EnhancedAI[Market Intelligence AI<br/>Options Flow Analysis<br/>Institutional Sentiment]
+        
+        AdvancedTechAgent[Advanced Technical Agent<br/>📈 Elliott Wave + Fibonacci]
+        AdvancedTechAI[Professional Technical AI<br/>Pattern Recognition<br/>Risk/Reward Analysis]
+        
+        ReportAgent[Report Generator Agent<br/>📄 Professional Reports]
+        ReportAI[Report AI<br/>Executive Summaries<br/>Investment Thesis]
+    end
+    
+    UI --> UIAgent
+    WS -.-> UIAgent
+    Progress -.-> UI
+    UIAgent --> Redis
+    Redis --> StockAgent
+    Redis --> NewsAgent
+    Redis --> EnhancedAgent
+    Redis --> AdvancedTechAgent
+    Redis --> ReportAgent
+    Redis --> AnalysisAgent
+    
+    StockAgent --> StockAPIs
+    StockAgent --> StockAI
+    StockAI --> Ollama
+    
+    NewsAgent --> NewsAPIs
+    NewsAgent --> SocialAPIs
+    NewsAgent --> NewsAI
+    NewsAI --> Ollama
+    
+    EnhancedAgent --> EnhancedAPIs
+    EnhancedAgent --> EnhancedAI
+    EnhancedAI --> Ollama
+    
+    AdvancedTechAgent --> TechnicalAPIs
+    AdvancedTechAgent --> AdvancedTechAI
+    AdvancedTechAI --> Ollama
+    
+    ReportAgent --> ReportAI
+    ReportAI --> Ollama
+    
+    AnalysisAgent --> AIAnalysis
+    AIAnalysis --> Ollama
+    AnalysisAgent --> UIAgent
+    
+    Ollama --> LLaMA
+    Ollama --> Mistral
+    Ollama --> AICache
+    AICache --> Redis
+    
+    subgraph "External APIs"
+        StockAPIs[Stock APIs<br/>Alpha Vantage<br/>Finnhub<br/>Twelve Data]
+        NewsAPIs[News APIs<br/>NewsAPI<br/>NewsData<br/>Webz.io]
+        SocialAPIs[Social APIs<br/>StockTwits<br/>Twitter]
+        EnhancedAPIs[Enhanced APIs<br/>Options Data<br/>Institutional Data<br/>Analyst Ratings]
+        TechnicalAPIs[Technical APIs<br/>Advanced Charting<br/>Pattern Recognition]
+    end
+    
+    style Ollama fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    style StockAI fill:#f3e5f5,stroke:#4a148c
+    style NewsAI fill:#f3e5f5,stroke:#4a148c
+    style EnhancedAI fill:#f3e5f5,stroke:#4a148c
+    style AdvancedTechAI fill:#f3e5f5,stroke:#4a148c
+    style ReportAI fill:#f3e5f5,stroke:#4a148c
     style AIAnalysis fill:#f3e5f5,stroke:#4a148c
     style LLaMA fill:#e8f5e8,stroke:#1b5e20
     style Mistral fill:#e8f5e8,stroke:#1b5e20
@@ -169,6 +284,85 @@ sequenceDiagram
     Frontend->>User: Display comprehensive AI-powered report
     
     Note over User,AnalysisAgent: 🎯 Result: Traditional algorithms + AI insights<br/>for institutional-quality analysis
+```
+
+## 🔄 Enhanced Agent Communication Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant UIAgent
+    participant Redis
+    participant StockAgent
+    participant NewsAgent
+    participant EnhancedAgent
+    participant AdvancedTechAgent
+    participant ReportAgent
+    participant AnalysisAgent
+    participant Ollama
+    
+    User->>Frontend: Enter stock symbol (e.g., AAPL)
+    Frontend->>UIAgent: POST /api/analyze
+    UIAgent->>Redis: Publish analysis request
+    
+    Note over Frontend: Progress: 0% - Starting analysis
+    
+    par Parallel Data Collection & AI Enhancement
+        Redis->>StockAgent: Stock data request (0-20% progress)
+        Redis->>NewsAgent: News sentiment request (20-40% progress)
+        Redis->>EnhancedAgent: Enhanced data request (40-60% progress)
+        Redis->>AdvancedTechAgent: Advanced technical request (60-80% progress)
+        Redis->>ReportAgent: Report generation request (80-90% progress)
+    end
+    
+    par Traditional + AI Processing
+        StockAgent->>StockAgent: Fetch price data<br/>Calculate indicators
+        StockAgent->>Ollama: 🧠 AI chart pattern analysis
+        Ollama-->>StockAgent: Enhanced technical insights
+        Note over Frontend: Progress: 20% - Stock data complete
+        
+        NewsAgent->>NewsAgent: Fetch news<br/>Basic sentiment (VADER)
+        NewsAgent->>Ollama: 🧠 AI context analysis
+        Ollama-->>NewsAgent: Market context insights
+        Note over Frontend: Progress: 40% - News analysis complete
+        
+        EnhancedAgent->>EnhancedAgent: Fetch options data<br/>Institutional holdings
+        EnhancedAgent->>Ollama: 🧠 AI market intelligence
+        Ollama-->>EnhancedAgent: Enhanced market insights
+        Note over Frontend: Progress: 60% - Enhanced data complete
+        
+        AdvancedTechAgent->>AdvancedTechAgent: Elliott Wave analysis<br/>Fibonacci retracements
+        AdvancedTechAgent->>Ollama: 🧠 AI pattern recognition
+        Ollama-->>AdvancedTechAgent: Professional technical insights
+        Note over Frontend: Progress: 80% - Advanced technical complete
+        
+        ReportAgent->>ReportAgent: Generate report structure
+        ReportAgent->>Ollama: 🧠 AI executive summary
+        Ollama-->>ReportAgent: Professional report content
+        Note over Frontend: Progress: 90% - Report generation complete
+    end
+    
+    par Publish AI-Enhanced Results
+        StockAgent->>Redis: Technical analysis + AI patterns
+        NewsAgent->>Redis: Sentiment + AI context
+        EnhancedAgent->>Redis: Enhanced data + AI insights
+        AdvancedTechAgent->>Redis: Advanced technical + AI analysis
+        ReportAgent->>Redis: Professional report + AI summary
+    end
+    
+    Redis->>AnalysisAgent: Consolidated AI-enhanced data
+    Note over Frontend: Progress: 95% - Starting comprehensive analysis
+    AnalysisAgent->>AnalysisAgent: Calculate composite scores<br/>Generate final recommendations
+    AnalysisAgent->>Ollama: 🧠 AI investment recommendations<br/>Risk assessment<br/>Market context
+    Ollama-->>AnalysisAgent: Natural language reasoning
+    Note over Frontend: Progress: 100% - Analysis complete
+    AnalysisAgent->>Redis: Final AI-enhanced analysis
+    Redis->>UIAgent: Analysis complete
+    UIAgent->>Frontend: Real-time updates via WebSocket
+    Frontend->>User: Display comprehensive AI-powered report
+    
+    Note over User,AnalysisAgent: 🎯 Result: Professional-grade analysis with<br/>AI-enhanced insights and institutional-quality reports
 ```
 
 ## 📊 AI-Enhanced Data Processing Pipeline
@@ -239,9 +433,110 @@ flowchart LR
     style G fill:#fff3e0,stroke:#e65100
 ```
 
-## 🎯 Progress Bar System
+## 📊 Enhanced Data Processing Pipeline
 
-The application features an optimized **3-stage progress tracking system** with real-time WebSocket updates:
+```mermaid
+flowchart LR
+    subgraph "Input Stage"
+        A[Stock Symbol] --> B[Request Validation]
+    end
+    
+    subgraph "Enhanced Data Collection"
+        B --> C[Stock Data Agent<br/>0-20% Progress]
+        B --> D[News Sentiment Agent<br/>20-40% Progress]
+        B --> E[Enhanced Data Agent<br/>40-60% Progress]
+        B --> F[Advanced Technical Agent<br/>60-80% Progress]
+        B --> G[Report Generator Agent<br/>80-90% Progress]
+        
+        C --> C1[Price/Volume Data]
+        C --> C2[Technical Indicators]
+        C --> C3[🧠 AI Chart Patterns<br/>Support/Resistance]
+        
+        D --> D1[News Articles]
+        D --> D2[Social Media]
+        D --> D3[Basic Sentiment]
+        D --> D4[🧠 AI Context Analysis<br/>Theme Extraction]
+        
+        E --> E1[Options Data]
+        E --> E2[Institutional Holdings]
+        E --> E3[Insider Trading]
+        E --> E4[🧠 AI Market Intelligence<br/>Options Flow Analysis]
+        
+        F --> F1[Elliott Wave Analysis]
+        F --> F2[Fibonacci Retracements]
+        F --> F3[Chart Patterns]
+        F --> F4[🧠 AI Pattern Recognition<br/>Risk/Reward Analysis]
+        
+        G --> G1[Report Structure]
+        G --> G2[Executive Summary]
+        G --> G3[🧠 AI Investment Thesis<br/>Professional Content]
+    end
+    
+    subgraph "🧠 Local AI Processing"
+        AI[Ollama LLM Service]
+        AI1[Pattern Recognition]
+        AI2[Sentiment Context]
+        AI3[Market Intelligence]
+        AI4[Technical Analysis]
+        AI5[Report Generation]
+        AI6[Investment Reasoning]
+        
+        C3 --> AI1
+        D4 --> AI2
+        E4 --> AI3
+        F4 --> AI4
+        G3 --> AI5
+        AI1 & AI2 & AI3 & AI4 & AI5 --> AI6
+    end
+    
+    subgraph "Comprehensive Analysis Engine"
+        C1 & C2 & C3 --> H[Technical Score<br/>📈 Enhanced with AI Patterns]
+        D1 & D2 & D3 & D4 --> I[Sentiment Score<br/>📰 Enhanced with AI Context]
+        E1 & E2 & E3 & E4 --> J[Enhanced Score<br/>📊 Options & Institutional Data]
+        F1 & F2 & F3 & F4 --> K[Advanced Technical Score<br/>📈 Professional Analysis]
+        G1 & G2 & G3 --> L[Report Score<br/>📄 Professional Quality]
+        
+        H & I & J & K & L --> M[AI-Enhanced<br/>Comprehensive Analysis<br/>90-100% Progress]
+    end
+    
+    subgraph "AI-Powered Output Generation"
+        M --> M1[🧠 Market Context Analysis]
+        M1 --> N[Short-term<br/>Recommendation<br/>+ AI Reasoning]
+        M1 --> O[Mid-term<br/>Recommendation<br/>+ AI Reasoning]
+        M1 --> P[Long-term<br/>Recommendation<br/>+ AI Reasoning]
+        
+        N & O & P --> Q[🧠 AI Risk Assessment<br/>+ Mitigation Strategies]
+        Q --> R[📋 Comprehensive<br/>Professional Report]
+    end
+    
+    subgraph "Intelligence Layers"
+        IL1[Traditional Algorithms]
+        IL2[🧠 Local AI Enhancement]
+        IL3[Professional Analysis]
+        IL4[Natural Language Explanations]
+    end
+    
+    AI --> C3 & D4 & E4 & F4 & G3 & M1 & Q
+    
+    style AI fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    style C3 fill:#f3e5f5,stroke:#4a148c
+    style D4 fill:#f3e5f5,stroke:#4a148c
+    style E4 fill:#f3e5f5,stroke:#4a148c
+    style F4 fill:#f3e5f5,stroke:#4a148c
+    style G3 fill:#f3e5f5,stroke:#4a148c
+    style M1 fill:#f3e5f5,stroke:#4a148c
+    style Q fill:#f3e5f5,stroke:#4a148c
+    style R fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    style H fill:#fff3e0,stroke:#e65100
+    style I fill:#fff3e0,stroke:#e65100
+    style J fill:#fff3e0,stroke:#e65100
+    style K fill:#fff3e0,stroke:#e65100
+    style L fill:#fff3e0,stroke:#e65100
+```
+
+## 🎯 Enhanced Progress Bar System
+
+The application features an optimized **multi-stage progress tracking system** with real-time WebSocket updates:
 
 ```mermaid
 gantt
@@ -250,19 +545,31 @@ gantt
     axisFormat %
     
     section Stage 1: Stock Data
-    Technical Analysis     :done, stage1, 0, 33
+    Technical Analysis     :done, stage1, 0, 20
     
     section Stage 2: News Analysis  
-    Sentiment Processing   :done, stage2, 33, 66
+    Sentiment Processing   :done, stage2, 20, 40
     
-    section Stage 3: AI Analysis
-    Investment Recommendations :done, stage3, 66, 100
+    section Stage 3: Enhanced Data
+    Options & Institutional :done, stage3, 40, 60
+    
+    section Stage 4: Advanced Technical
+    Elliott Wave & Fibonacci :done, stage4, 60, 80
+    
+    section Stage 5: Report Generation
+    Professional Reports   :done, stage5, 80, 90
+    
+    section Stage 6: Final Analysis
+    AI Recommendations     :done, stage6, 90, 100
 ```
 
 ### Progress Mapping
-- **0-33%**: Stock Data Agent (Technical analysis, price data, indicators)
-- **33-66%**: News Sentiment Agent (News analysis, social sentiment)  
-- **66-100%**: Analysis Agent (AI-powered investment recommendations)
+- **0-20%**: Stock Data Agent (Technical analysis, price data, indicators)
+- **20-40%**: News Sentiment Agent (News analysis, social sentiment)  
+- **40-60%**: Enhanced Data Agent (Options flow, institutional data, analyst ratings)
+- **60-80%**: Advanced Technical Agent (Elliott Wave, Fibonacci, advanced patterns)
+- **80-90%**: Report Generator Agent (Professional report generation)
+- **90-100%**: Analysis Agent (AI-powered investment recommendations)
 
 ## 🛠️ Technology Stack
 
@@ -299,6 +606,64 @@ gantt
 | **Twinword** | `https://api.twinword.com/v2` | `TWINWORD_API_KEY` | NewsSentimentAgent | 📋 Configured | Varies |
 | **Ollama** | `http://localhost:11434` | N/A | All Agents | ✅ Required | Local |
 | **Redis** | `localhost:6379` | N/A | All Agents | ✅ Required | Local |
+
+## 🤖 Enhanced Agent System
+
+The application now features **8 specialized agents** working in harmony to provide institutional-quality analysis:
+
+### Core Data Agents
+
+#### **StockDataAgent** 📈
+- **Purpose**: Technical analysis and price data collection
+- **Progress**: 0-20%
+- **AI Enhancement**: Chart pattern recognition, support/resistance analysis
+- **Data Sources**: Alpha Vantage, Finnhub, Twelve Data
+- **Output**: Price data, technical indicators, AI-enhanced patterns
+
+#### **NewsSentimentAgent** 📰
+- **Purpose**: News sentiment and social media analysis
+- **Progress**: 20-40%
+- **AI Enhancement**: Market context analysis, theme extraction
+- **Data Sources**: NewsAPI, NewsData, StockTwits, Twitter
+- **Output**: Sentiment scores, news summaries, AI-enhanced context
+
+### Enhanced Analysis Agents
+
+#### **EnhancedDataAgent** 📊
+- **Purpose**: Advanced market data collection
+- **Progress**: 40-60%
+- **AI Enhancement**: Market intelligence, options flow analysis
+- **Data Sources**: Options data, institutional holdings, analyst ratings
+- **Output**: Options metrics, institutional sentiment, insider trading
+
+#### **AdvancedTechnicalAgent** 📈
+- **Purpose**: Professional technical analysis
+- **Progress**: 60-80%
+- **AI Enhancement**: Pattern recognition, risk/reward analysis
+- **Analysis Types**: Elliott Wave, Fibonacci retracements, chart patterns
+- **Output**: Advanced technical indicators, pattern analysis, entry/exit points
+
+#### **ReportGeneratorAgent** 📄
+- **Purpose**: Professional report generation
+- **Progress**: 80-90%
+- **AI Enhancement**: Executive summaries, investment thesis
+- **Report Sections**: Executive summary, risk assessment, valuation, recommendations
+- **Output**: Comprehensive investment reports with PDF export
+
+### Coordination Agents
+
+#### **AnalysisAgent** 🧠
+- **Purpose**: Master coordinator and final analysis
+- **Progress**: 90-100%
+- **AI Enhancement**: Investment recommendations, risk assessment
+- **Function**: Consolidates all agent data, generates final recommendations
+- **Output**: Comprehensive analysis with AI-powered insights
+
+#### **UIAgent** 🖥️
+- **Purpose**: Frontend coordination and real-time updates
+- **Function**: Manages WebSocket connections, API endpoints
+- **Features**: Debug panel, progress tracking, error handling
+- **Output**: Real-time updates to frontend
 
 **Status Legend:**
 - ✅ **Active** - Currently being used in the application
@@ -428,7 +793,7 @@ The streamlined 3-agent backend system built with Node.js and Express.
   - Specialized methods for sentiment and technical analysis
 
 #### **Frontend (`/frontend/`)**
-Modern React application with optimized real-time capabilities.
+Modern React application with optimized real-time capabilities and enhanced UI components.
 
 **⚛️ Components (`/frontend/src/components/`)**
 - **`StockSearchForm.js`** - Stock symbol input interface:
@@ -437,20 +802,31 @@ Modern React application with optimized real-time capabilities.
   - Form submission handling
   - Error state management
 
-- **`LoadingIndicator.js`** - **Enhanced 3-Stage Progress Display**:
-  - **Stage 1**: Stock Data (0-33%) - Technical analysis
-  - **Stage 2**: News Analysis (33-66%) - Sentiment processing  
-  - **Stage 3**: AI Analysis (66-100%) - Investment recommendations
+- **`LoadingIndicator.js`** - **Enhanced Multi-Stage Progress Display**:
+  - **Stage 1**: Stock Data (0-20%) - Technical analysis
+  - **Stage 2**: News Analysis (20-40%) - Sentiment processing  
+  - **Stage 3**: Enhanced Data (40-60%) - Options and institutional data
+  - **Stage 4**: Advanced Technical (60-80%) - Elliott Wave and Fibonacci
+  - **Stage 5**: Report Generation (80-90%) - Professional reports
+  - **Stage 6**: Final Analysis (90-100%) - AI recommendations
   - **Fixed WebSocket Progress Updates**: Proper prop-based progress handling
   - Animated loading states with accurate stage mapping
   - Error and completion notifications
 
-- **`AnalysisResults.js`** - **Streamlined Results Display**:
-  - **Removed Economic Section**: No longer displays economic analysis
+- **`AnalysisResults.js`** - **Comprehensive Results Display**:
   - **Enhanced Technical Analysis**: Displays comprehensive technical indicators
   - **Enhanced Sentiment Analysis**: Shows AI-powered sentiment insights
-  - **Rebalanced Scoring**: Technical (60%) and Sentiment (40%) weights
-  - **Market Intelligence Focus**: Changed from "Economic Context" to "Market Intelligence"
+  - **Enhanced Market Data**: Options flow, institutional holdings, insider trading
+  - **Advanced Technical Analysis**: Elliott Wave, Fibonacci, chart patterns
+  - **Professional Reports**: Executive summaries, investment thesis, risk assessment
+  - **Debug Panel**: Real-time agent monitoring and data inspection
+  - **PDF Export**: Professional report export capabilities
+
+- **`DebugModal.js`** - **Agent Debug Interface**:
+  - Real-time agent data inspection
+  - Input/output data visualization
+  - Error detection and reporting
+  - Performance metrics display
 
 **🔗 Contexts (`/frontend/src/contexts/`)**
 - **`SocketContext.js`** - **Enhanced WebSocket Management**:
@@ -493,10 +869,35 @@ This streamlined structure supports the 3-agent architecture by:
 
 - **🚀 Start here**: `README.md` for setup instructions
 - **⚙️ Configuration**: `backend/config.example` for environment setup
-- **🤖 Agents**: `backend/src/agents/` for core business logic (3 agents)
+- **🤖 Agents**: `backend/src/agents/` for core business logic (8 agents)
 - **🖥️ UI Components**: `frontend/src/components/` for user interface
 - **📊 Real-time**: `frontend/src/contexts/SocketContext.js` for live updates
 - **🔧 Utilities**: `backend/src/utils/` for shared functionality
+
+## 🛠️ Debug Panel & Monitoring
+
+The application includes a comprehensive **Debug Panel** in the frontend for real-time monitoring and troubleshooting:
+
+### Debug Panel Features
+- **Agent Status Monitoring**: Real-time status of all 8 agents
+- **Data Flow Visualization**: Input/output data for each agent
+- **Error Detection**: Immediate identification of failed agents
+- **Performance Metrics**: Response times and data quality indicators
+- **AI Enhancement Status**: Ollama integration status and model availability
+
+### Debug Panel Usage
+1. **Access**: Available in the main analysis interface
+2. **Agent Inspection**: Click debug buttons to inspect agent data
+3. **Status Overview**: Visual indicators for agent health
+4. **Data Validation**: Verify data quality and completeness
+5. **Error Resolution**: Identify and fix agent communication issues
+
+### Monitoring Capabilities
+- **Real-time Progress**: Multi-stage progress tracking (0-100%)
+- **Agent Communication**: Redis pub/sub message monitoring
+- **AI Processing**: Ollama response times and model status
+- **Data Quality**: Validation of agent outputs and data completeness
+- **Performance Metrics**: Response times and throughput monitoring
 
 ## 📋 Prerequisites
 
@@ -575,7 +976,7 @@ curl -fsSL https://ollama.ai/install.sh | sh
 ollama serve
 
 # In a new terminal, pull the recommended model
-ollama pull llama4:maverick
+ollama pull llama3.1:8b
 ```
 
 **Option 2: Manual Installation**
@@ -595,7 +996,7 @@ ollama serve
 **Recommended Models for Stock Analysis:**
 ```bash
 # Primary model (best balance of speed/quality)
-ollama pull llama4:maverick
+ollama pull llama3.1:8b
 
 # Alternative options:
 ollama pull mistral:7b       # Fast and efficient
@@ -607,7 +1008,7 @@ ollama pull llama3.1:70b     # Best quality, needs 40GB+ RAM
 ```
 
 **Model Requirements:**
-- `llama4:maverick`: ~8GB RAM, excellent balance
+- `llama3.1:8b`: ~8GB RAM, best balance of speed and quality for most users (recommended)
 - `mistral:7b`: ~4GB RAM, fast
 - `phi3:medium`: ~8GB RAM, specialized
 - `llama3.1:70b`: ~40GB RAM, best quality
@@ -618,7 +1019,7 @@ ollama pull llama3.1:70b     # Best quality, needs 40GB+ RAM
 curl http://localhost:11434/api/tags
 
 # Test a model
-ollama run llama4:maverick "Analyze the stock market trend for tech companies"
+ollama run llama3.1:8b "Analyze the stock market trend for tech companies"
 ```
 
 ### 5. Configure Environment Variables
@@ -640,7 +1041,7 @@ REDIS_PORT=6379
 
 # Ollama Configuration (optional)
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama4:maverick
+OLLAMA_MODEL=llama3.1:8b
 OLLAMA_ENABLED=true
 ```
 
@@ -665,10 +1066,10 @@ REDIS_PASSWORD=your_password
 
 # Ollama Configuration (AI Enhancement)
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama4:maverick
-OLLAMA_SENTIMENT_MODEL=llama4:maverick
-OLLAMA_ANALYSIS_MODEL=llama4:maverick
-OLLAMA_TECHNICAL_MODEL=llama4:maverick
+OLLAMA_MODEL=llama3.1:8b
+OLLAMA_SENTIMENT_MODEL=llama3.1:8b
+OLLAMA_ANALYSIS_MODEL=llama3.1:8b
+OLLAMA_TECHNICAL_MODEL=llama3.1:8b
 OLLAMA_TIMEOUT=60000
 OLLAMA_MAX_RETRIES=1
 OLLAMA_ENABLED=true
@@ -930,6 +1331,43 @@ When analyzing a stock like **AAPL**, the AI enhancement provides:
 
 *🎯 **Result**: A sophisticated AI-powered financial advisor that combines the reliability of traditional algorithms with the intelligence of Large Language Models, providing institutional-quality insights with complete privacy and local control.*
 
+## 📚 Additional Documentation
+
+For detailed information about specific aspects of the system:
+
+- **[ENHANCED_FEATURES.md](./ENHANCED_FEATURES.md)** - Comprehensive guide to enhanced agents and features
+- **[OLLAMA_ENHANCEMENT.md](./OLLAMA_ENHANCEMENT.md)** - Detailed AI integration and Ollama setup
+- **[SYSTEM_REQUIREMENTS.md](./SYSTEM_REQUIREMENTS.md)** - Hardware and software requirements
+- **[CHANGELOG.md](./CHANGELOG.md)** - Version history and recent updates
+- **[CONTRIBUTING.md](./CONTRIBUTING.md)** - Development guidelines and contribution process
+- **[SECURITY.md](./SECURITY.md)** - Security considerations and best practices
+
+## 🧪 Testing & Development
+
+### Testing Individual Agents
+```bash
+# Test all LLM agents
+node test-all-llm-agents.js
+
+# Test enhanced agents
+node test-enhanced-agents.js
+
+# Test specific stock (e.g., ADBE)
+node test-adbe-agents.js
+
+# Test Ollama integration
+node test-ollama-simple.js
+```
+
+### Debug Scripts
+```bash
+# Check system status
+./check-debug.sh
+
+# Debug backend
+node debug-backend.js
+```
+
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
@@ -948,6 +1386,7 @@ For support and questions:
 - Create an issue in the repository
 - Check the troubleshooting section above
 - Review the application logs for detailed error information
+- Use the debug panel for real-time monitoring
 
 ---
 

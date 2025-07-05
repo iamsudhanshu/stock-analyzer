@@ -530,10 +530,11 @@ class UIAgent extends BaseAgent {
         request.completedAt = Date.now();
         request.result = payload;
         
-        // Cache the result for future requests
-        const cacheKey = `analysis_result:${request.symbol}`;
-        console.log('💾 [UIAgent] Caching result with key:', cacheKey);
-        await redisClient.set(cacheKey, payload, 3600); // Cache for 1 hour
+        // Cache the result for future requests (temporarily disabled for debugging)
+        // const cacheKey = `analysis_result:${request.symbol}`;
+        // console.log('💾 [UIAgent] Caching result with key:', cacheKey);
+        // await redisClient.set(cacheKey, payload, 3600); // Cache for 1 hour
+        console.log('💾 [UIAgent] Caching disabled for debugging - fresh results only');
         
         // Send final result to connected clients
         const completionData = {

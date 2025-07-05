@@ -98,17 +98,23 @@ class StockDataAgent extends BaseAgent {
 
   async generateLLMEnhancedStockData(symbol) {
     try {
-      // Generate mock stock data (in real implementation, this would fetch from APIs)
-      const mockStockData = this.generateMockStockData(symbol);
+      let stockData;
+      if (config.analysis.useMockData) {
+        console.log('🧪 [StockDataAgent] Using mock data for testing');
+        stockData = this.generateMockStockData(symbol);
+      } else {
+        console.log('📊 [StockDataAgent] Fetching real stock data from APIs');
+        stockData = await this.fetchRealStockData(symbol);
+      }
       
       if (this.ollamaEnabled) {
         console.log('🧠 [StockDataAgent] Generating LLM-enhanced stock analysis...');
         
         // Use LLM to analyze stock data and generate insights
-        const llmAnalysis = await this.generateLLMStockInsights(symbol, mockStockData);
+        const llmAnalysis = await this.generateLLMStockInsights(symbol, stockData);
         
         return {
-          ...mockStockData,
+          ...stockData,
           llmInsights: llmAnalysis,
           llmEnhanced: true,
           lastUpdated: new Date().toISOString()
@@ -128,7 +134,10 @@ class StockDataAgent extends BaseAgent {
 
   async generateLLMStockInsights(symbol, stockData) {
     try {
-      const prompt = `Analyze the following stock data for ${symbol} and provide intelligent insights:
+      const stockType = this.getStockType(symbol);
+      const sectorContext = this.getSectorContext(stockType);
+      
+      const prompt = `Analyze the following stock data for ${symbol} (${sectorContext}) and provide intelligent insights:
 
 Stock Data:
 - Current Price: $${stockData.currentPrice}
@@ -140,14 +149,17 @@ Stock Data:
 - MACD: ${stockData.technicalIndicators?.macd}
 - Moving Averages: ${JSON.stringify(stockData.technicalIndicators?.movingAverages)}
 
-Please provide:
-1. Price trend analysis and momentum assessment
-2. Technical indicator interpretation
-3. Volume analysis and market sentiment
-4. Support and resistance levels
-5. Key price levels to watch
-6. Risk assessment and volatility analysis
-7. Short-term and medium-term outlook
+Sector Context: ${sectorContext}
+Stock Type: ${stockType}
+
+Please provide ${symbol}-specific analysis considering:
+1. ${symbol} price trend analysis and momentum assessment
+2. Technical indicator interpretation for ${symbol}
+3. Volume analysis and market sentiment for ${symbol}
+4. Support and resistance levels specific to ${symbol}
+5. Key price levels to watch for ${symbol}
+6. Risk assessment and volatility analysis for ${symbol}
+7. Short-term and medium-term outlook for ${symbol}
 
 Format your response as structured JSON with the following keys:
 - priceAnalysis: { trend, momentum, outlook }
@@ -157,7 +169,7 @@ Format your response as structured JSON with the following keys:
 - riskAssessment: { volatility, riskLevel, riskFactors }
 - outlook: { shortTerm, mediumTerm, confidence }
 
-Provide detailed, professional analysis suitable for investment decision-making.`;
+Provide detailed, professional analysis specific to ${symbol} suitable for investment decision-making.`;
 
       const response = await this.ollama.generate(prompt, { 
         maxTokens: 2000,
@@ -428,28 +440,272 @@ Provide detailed, professional analysis suitable for investment decision-making.
   }
 
   generateMockStockData(symbol) {
-    // Generate realistic mock data for demonstration
-    const basePrice = 100 + Math.random() * 200;
-    const volume = 500000 + Math.random() * 1500000;
-    const marketCap = basePrice * (1000000 + Math.random() * 9000000);
+    // Generate stock-specific mock data based on symbol
+    const symbolHash = this.hashSymbol(symbol);
+    const basePrice = this.getStockSpecificPrice(symbol, symbolHash.price);
+    const volume = this.getStockSpecificVolume(symbol, symbolHash.volume);
+    const marketCap = this.getStockSpecificMarketCap(symbol, basePrice, symbolHash.price);
     
     return {
       symbol: symbol.toUpperCase(),
       currentPrice: parseFloat(basePrice.toFixed(2)),
       volume: Math.floor(volume),
       marketCap: Math.floor(marketCap),
-      fiftyTwoWeekHigh: parseFloat((basePrice * 1.3).toFixed(2)),
-      fiftyTwoWeekLow: parseFloat((basePrice * 0.7).toFixed(2)),
+      fiftyTwoWeekHigh: parseFloat((basePrice * (1.2 + symbolHash.price * 0.2)).toFixed(2)),
+      fiftyTwoWeekLow: parseFloat((basePrice * (0.6 + symbolHash.price * 0.2)).toFixed(2)),
       technicalIndicators: {
-        rsi: 30 + Math.random() * 40,
-        macd: -2 + Math.random() * 4,
+        rsi: 25 + (symbolHash.technical * 50), // Different RSI for each stock
+        macd: -3 + (symbolHash.technical * 6), // Different MACD for each stock
         movingAverages: {
-          sma20: parseFloat((basePrice * (0.95 + Math.random() * 0.1)).toFixed(2)),
-          sma50: parseFloat((basePrice * (0.9 + Math.random() * 0.2)).toFixed(2)),
-          sma200: parseFloat((basePrice * (0.85 + Math.random() * 0.3)).toFixed(2))
+          sma20: parseFloat((basePrice * (0.9 + symbolHash.technical * 0.2)).toFixed(2)),
+          sma50: parseFloat((basePrice * (0.8 + symbolHash.technical * 0.3)).toFixed(2)),
+          sma200: parseFloat((basePrice * (0.7 + symbolHash.technical * 0.4)).toFixed(2))
         }
       }
     };
+  }
+
+  // Helper methods to generate stock-specific data
+  hashSymbol(symbol) {
+    let hash = 0;
+    for (let i = 0; i < symbol.length; i++) {
+      const char = symbol.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    // Add more variation by using different parts of the hash
+    const normalizedHash = Math.abs(hash) / 2147483647;
+    // Use different parts of the hash for different metrics
+    return {
+      price: (normalizedHash * 1000) % 1,
+      volume: (normalizedHash * 2000) % 1,
+      technical: (normalizedHash * 3000) % 1,
+      fundamental: (normalizedHash * 4000) % 1
+    };
+  }
+
+  getStockSpecificPrice(symbol, hash) {
+    // Different price ranges for different stock types
+    if (symbol.includes('AAPL') || symbol.includes('MSFT') || symbol.includes('GOOGL')) {
+      return 150 + (hash * 100); // Tech stocks: $150-250
+    } else if (symbol.includes('JPM') || symbol.includes('BAC') || symbol.includes('WFC')) {
+      return 30 + (hash * 70); // Financial stocks: $30-100
+    } else if (symbol.includes('XOM') || symbol.includes('CVX')) {
+      return 80 + (hash * 60); // Energy stocks: $80-140
+    } else if (symbol.includes('TSLA')) {
+      return 200 + (hash * 100); // Tesla: $200-300
+    } else {
+      return 50 + (hash * 150); // Default: $50-200
+    }
+  }
+
+  getStockSpecificVolume(symbol, hash) {
+    // Different volume ranges for different stock types
+    if (symbol.includes('AAPL') || symbol.includes('TSLA')) {
+      return 5000000 + (hash * 10000000); // High volume stocks
+    } else if (symbol.includes('MSFT') || symbol.includes('GOOGL')) {
+      return 3000000 + (hash * 7000000); // Medium-high volume
+    } else {
+      return 500000 + (hash * 2000000); // Default volume
+    }
+  }
+
+  getStockSpecificMarketCap(symbol, basePrice, hash) {
+    // Different market cap ranges for different stock types
+    if (symbol.includes('AAPL') || symbol.includes('MSFT') || symbol.includes('GOOGL')) {
+      return basePrice * (5000000 + hash * 5000000); // Mega cap
+    } else if (symbol.includes('TSLA')) {
+      return basePrice * (3000000 + hash * 2000000); // Large cap
+    } else {
+      return basePrice * (1000000 + hash * 4000000); // Default
+    }
+  }
+
+  getStockType(symbol) {
+    if (symbol.includes('AAPL') || symbol.includes('MSFT') || symbol.includes('GOOGL') || symbol.includes('TSLA')) {
+      return 'tech';
+    } else if (symbol.includes('JPM') || symbol.includes('BAC') || symbol.includes('WFC')) {
+      return 'financial';
+    } else if (symbol.includes('XOM') || symbol.includes('CVX')) {
+      return 'energy';
+    } else {
+      return 'general';
+    }
+  }
+
+  getSectorContext(stockType) {
+    const contexts = {
+      tech: 'Technology sector with focus on innovation and growth',
+      financial: 'Financial services sector with regulatory considerations',
+      energy: 'Energy sector with commodity price sensitivity',
+      general: 'Diversified sector with mixed market dynamics'
+    };
+    return contexts[stockType] || contexts.general;
+  }
+
+  async fetchRealStockData(symbol) {
+    try {
+      console.log(`📊 [StockDataAgent] Fetching real data for ${symbol}`);
+      
+      // Try different API providers in order of preference
+      for (const provider of this.apiProviders) {
+        try {
+          console.log(`🔄 [StockDataAgent] Trying ${provider.name} API...`);
+          
+          switch (provider.name) {
+            case 'alphaVantage':
+              return await this.fetchFromAlphaVantage(symbol);
+            case 'finnhub':
+              return await this.fetchFromFinnhub(symbol);
+            case 'twelveData':
+              return await this.fetchFromTwelveData(symbol);
+            default:
+              console.log(`⚠️ [StockDataAgent] Unknown provider: ${provider.name}`);
+          }
+        } catch (error) {
+          console.log(`❌ [StockDataAgent] ${provider.name} failed:`, error.message);
+          continue;
+        }
+      }
+      
+      throw new Error('All API providers failed');
+      
+    } catch (error) {
+      console.error(`💥 [StockDataAgent] Error fetching real stock data for ${symbol}:`, error);
+      throw new Error(`Failed to fetch stock data: ${error.message}`);
+    }
+  }
+
+  async fetchFromAlphaVantage(symbol) {
+    if (!config.apiKeys.alphaVantage) {
+      throw new Error('Alpha Vantage API key not configured');
+    }
+
+    const url = `${config.apiEndpoints.alphaVantage}?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${config.apiKeys.alphaVantage}`;
+    const response = await axios.get(url);
+    
+    if (response.data['Error Message']) {
+      throw new Error(response.data['Error Message']);
+    }
+
+    const quote = response.data['Global Quote'];
+    if (!quote || !quote['05. price']) {
+      throw new Error('No data returned from Alpha Vantage');
+    }
+
+    return {
+      symbol: symbol.toUpperCase(),
+      currentPrice: parseFloat(quote['05. price']),
+      volume: parseInt(quote['06. volume']),
+      marketCap: parseFloat(quote['07. market cap']) || 0,
+      fiftyTwoWeekHigh: parseFloat(quote['09. change']) || 0,
+      fiftyTwoWeekLow: parseFloat(quote['10. change percent']) || 0,
+      technicalIndicators: await this.fetchTechnicalIndicators(symbol),
+      lastUpdated: new Date().toISOString()
+    };
+  }
+
+  async fetchFromFinnhub(symbol) {
+    if (!config.apiKeys.finnhub) {
+      throw new Error('Finnhub API key not configured');
+    }
+
+    const url = `${config.apiEndpoints.finnhub}/quote?symbol=${symbol}&token=${config.apiKeys.finnhub}`;
+    const response = await axios.get(url);
+    
+    if (response.data.error) {
+      throw new Error(response.data.error);
+    }
+
+    return {
+      symbol: symbol.toUpperCase(),
+      currentPrice: response.data.c,
+      volume: response.data.v,
+      marketCap: 0, // Finnhub doesn't provide market cap in quote endpoint
+      fiftyTwoWeekHigh: response.data.h,
+      fiftyTwoWeekLow: response.data.l,
+      technicalIndicators: await this.fetchTechnicalIndicators(symbol),
+      lastUpdated: new Date().toISOString()
+    };
+  }
+
+  async fetchFromTwelveData(symbol) {
+    if (!config.apiKeys.twelveData) {
+      throw new Error('Twelve Data API key not configured');
+    }
+
+    const url = `${config.apiEndpoints.twelveData}/quote?symbol=${symbol}&apikey=${config.apiKeys.twelveData}`;
+    const response = await axios.get(url);
+    
+    if (response.data.status === 'error') {
+      throw new Error(response.data.message);
+    }
+
+    const quote = response.data;
+    return {
+      symbol: symbol.toUpperCase(),
+      currentPrice: parseFloat(quote.close),
+      volume: parseInt(quote.volume),
+      marketCap: parseFloat(quote.market_cap) || 0,
+      fiftyTwoWeekHigh: parseFloat(quote.fifty_two_week.high) || 0,
+      fiftyTwoWeekLow: parseFloat(quote.fifty_two_week.low) || 0,
+      technicalIndicators: await this.fetchTechnicalIndicators(symbol),
+      lastUpdated: new Date().toISOString()
+    };
+  }
+
+  async fetchTechnicalIndicators(symbol) {
+    try {
+      // Fetch RSI, MACD, and moving averages
+      const indicators = {};
+      
+      // RSI
+      if (config.apiKeys.twelveData) {
+        try {
+          const rsiUrl = `${config.apiEndpoints.twelveData}/rsi?symbol=${symbol}&interval=1day&apikey=${config.apiKeys.twelveData}`;
+          const rsiResponse = await axios.get(rsiUrl);
+          if (rsiResponse.data.status !== 'error') {
+            indicators.rsi = parseFloat(rsiResponse.data.values[0].rsi);
+          }
+        } catch (error) {
+          console.log('⚠️ [StockDataAgent] RSI fetch failed:', error.message);
+        }
+      }
+      
+      // MACD
+      if (config.apiKeys.twelveData) {
+        try {
+          const macdUrl = `${config.apiEndpoints.twelveData}/macd?symbol=${symbol}&interval=1day&apikey=${config.apiKeys.twelveData}`;
+          const macdResponse = await axios.get(macdUrl);
+          if (macdResponse.data.status !== 'error') {
+            indicators.macd = parseFloat(macdResponse.data.values[0].macd);
+          }
+        } catch (error) {
+          console.log('⚠️ [StockDataAgent] MACD fetch failed:', error.message);
+        }
+      }
+      
+      // Moving Averages
+      if (config.apiKeys.twelveData) {
+        try {
+          const smaUrl = `${config.apiEndpoints.twelveData}/sma?symbol=${symbol}&interval=1day&time_period=20&apikey=${config.apiKeys.twelveData}`;
+          const smaResponse = await axios.get(smaUrl);
+          if (smaResponse.data.status !== 'error') {
+            indicators.movingAverages = {
+              sma20: parseFloat(smaResponse.data.values[0].sma)
+            };
+          }
+        } catch (error) {
+          console.log('⚠️ [StockDataAgent] SMA fetch failed:', error.message);
+        }
+      }
+      
+      return indicators;
+      
+    } catch (error) {
+      console.log('⚠️ [StockDataAgent] Technical indicators fetch failed:', error.message);
+      return {};
+    }
   }
 }
 

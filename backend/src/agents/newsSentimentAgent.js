@@ -98,17 +98,24 @@ class NewsSentimentAgent extends BaseAgent {
 
   async generateLLMEnhancedNewsSentiment(symbol) {
     try {
-      // Generate mock news data (in real implementation, this would fetch from news APIs)
-      const mockNewsData = this.generateMockNewsData(symbol);
+      let newsData;
+      
+      if (config.analysis.useMockData) {
+        console.log('🧪 [NewsSentimentAgent] Using mock data for testing');
+        newsData = this.generateMockNewsData(symbol);
+      } else {
+        console.log('📰 [NewsSentimentAgent] Fetching real news data from APIs');
+        newsData = await this.fetchRealNewsData(symbol);
+      }
       
       if (this.ollamaEnabled) {
         console.log('🧠 [NewsSentimentAgent] Generating LLM-enhanced news analysis...');
         
         // Use LLM to analyze news and generate insights
-        const llmAnalysis = await this.generateLLMNewsInsights(symbol, mockNewsData);
+        const llmAnalysis = await this.generateLLMNewsInsights(symbol, newsData);
         
         return {
-          ...mockNewsData,
+          ...newsData,
           llmInsights: llmAnalysis,
           llmEnhanced: true,
           lastUpdated: new Date().toISOString()
@@ -717,45 +724,11 @@ Provide detailed, professional analysis suitable for investment decision-making.
   }
 
   generateMockNewsData(symbol) {
-    // Generate realistic mock news data for demonstration
-    const mockArticles = [
-      {
-        title: `${symbol} Reports Strong Q3 Earnings, Exceeds Expectations`,
-        summary: `${symbol} announced quarterly earnings that beat analyst estimates, driven by strong product sales and market expansion.`,
-        sentiment: 85,
-        source: 'Financial Times',
-        publishedAt: new Date().toISOString()
-      },
-      {
-        title: `${symbol} Launches New AI-Powered Product Line`,
-        summary: `${symbol} unveiled its latest artificial intelligence product, positioning the company for future growth in the AI market.`,
-        sentiment: 75,
-        source: 'TechCrunch',
-        publishedAt: new Date().toISOString()
-      },
-      {
-        title: `${symbol} Faces Regulatory Scrutiny in European Markets`,
-        summary: `${symbol} is under investigation by European regulators over potential antitrust concerns.`,
-        sentiment: 35,
-        source: 'Reuters',
-        publishedAt: new Date().toISOString()
-      },
-      {
-        title: `${symbol} Announces Strategic Partnership with Major Tech Company`,
-        summary: `${symbol} has formed a strategic partnership that could significantly expand its market reach.`,
-        sentiment: 80,
-        source: 'Bloomberg',
-        publishedAt: new Date().toISOString()
-      },
-      {
-        title: `${symbol} Stock Shows Strong Technical Momentum`,
-        summary: `${symbol} shares are showing positive technical indicators, suggesting continued upward movement.`,
-        sentiment: 70,
-        source: 'MarketWatch',
-        publishedAt: new Date().toISOString()
-      }
-    ];
-
+    // Generate stock-specific mock news data based on symbol
+    const symbolHash = this.hashSymbol(symbol);
+    const stockType = this.getStockType(symbol);
+    
+    const mockArticles = this.generateStockSpecificArticles(symbol, stockType, symbolHash.sentiment);
     const overallScore = mockArticles.reduce((sum, article) => sum + article.sentiment, 0) / mockArticles.length;
     
     return {
@@ -763,15 +736,348 @@ Provide detailed, professional analysis suitable for investment decision-making.
       articles: mockArticles,
       sentimentAnalysis: {
         overallScore: Math.round(overallScore),
-        keyThemes: ['earnings', 'product_launch', 'partnership', 'regulation'],
+        keyThemes: this.getStockSpecificThemes(stockType, symbolHash.themes),
         summary: `Overall sentiment for ${symbol} is ${overallScore > 60 ? 'positive' : overallScore < 40 ? 'negative' : 'neutral'}.`
       },
       socialSentiment: {
-        score: overallScore + (Math.random() - 0.5) * 20,
-        mentions: Math.floor(Math.random() * 1000) + 100,
-        trending: Math.random() > 0.5
+        score: overallScore + (symbolHash.social - 0.5) * 30,
+        mentions: Math.floor(100 + symbolHash.social * 2000),
+        trending: symbolHash.social > 0.7
       }
     };
+  }
+
+  // Helper methods for stock-specific data
+  hashSymbol(symbol) {
+    let hash = 0;
+    for (let i = 0; i < symbol.length; i++) {
+      const char = symbol.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    const normalizedHash = Math.abs(hash) / 2147483647;
+    return {
+      sentiment: (normalizedHash * 1000) % 1,
+      themes: (normalizedHash * 2000) % 1,
+      social: (normalizedHash * 3000) % 1
+    };
+  }
+
+  getStockType(symbol) {
+    if (symbol.includes('AAPL') || symbol.includes('MSFT') || symbol.includes('GOOGL') || symbol.includes('TSLA')) {
+      return 'tech';
+    } else if (symbol.includes('JPM') || symbol.includes('BAC') || symbol.includes('WFC')) {
+      return 'financial';
+    } else if (symbol.includes('XOM') || symbol.includes('CVX')) {
+      return 'energy';
+    } else {
+      return 'general';
+    }
+  }
+
+  generateStockSpecificArticles(symbol, stockType, hash) {
+    const articles = [];
+    
+    if (stockType === 'tech') {
+      articles.push(
+        {
+          title: `${symbol} Reports Strong Q3 Earnings, Exceeds Expectations`,
+          summary: `${symbol} announced quarterly earnings that beat analyst estimates, driven by strong product sales and market expansion.`,
+          sentiment: 80 + (hash * 20),
+          source: 'Financial Times',
+          publishedAt: new Date().toISOString()
+        },
+        {
+          title: `${symbol} Launches New AI-Powered Product Line`,
+          summary: `${symbol} unveiled its latest artificial intelligence product, positioning the company for future growth in the AI market.`,
+          sentiment: 70 + (hash * 25),
+          source: 'TechCrunch',
+          publishedAt: new Date().toISOString()
+        },
+        {
+          title: `${symbol} Faces Regulatory Scrutiny in European Markets`,
+          summary: `${symbol} is under investigation by European regulators over potential antitrust concerns.`,
+          sentiment: 30 + (hash * 20),
+          source: 'Reuters',
+          publishedAt: new Date().toISOString()
+        }
+      );
+    } else if (stockType === 'financial') {
+      articles.push(
+        {
+          title: `${symbol} Reports Strong Q3 Earnings, Exceeds Expectations`,
+          summary: `${symbol} announced quarterly earnings that beat analyst estimates, driven by strong lending and investment banking.`,
+          sentiment: 75 + (hash * 20),
+          source: 'Financial Times',
+          publishedAt: new Date().toISOString()
+        },
+        {
+          title: `${symbol} Expands Digital Banking Services`,
+          summary: `${symbol} launched new digital banking features to compete with fintech startups.`,
+          sentiment: 65 + (hash * 25),
+          source: 'Bloomberg',
+          publishedAt: new Date().toISOString()
+        },
+        {
+          title: `${symbol} Faces Regulatory Changes in Banking Sector`,
+          summary: `${symbol} is adapting to new banking regulations that could impact profitability.`,
+          sentiment: 40 + (hash * 20),
+          source: 'Reuters',
+          publishedAt: new Date().toISOString()
+        }
+      );
+    } else if (stockType === 'energy') {
+      articles.push(
+        {
+          title: `${symbol} Reports Strong Q3 Earnings, Exceeds Expectations`,
+          summary: `${symbol} announced quarterly earnings that beat analyst estimates, driven by strong oil prices and production.`,
+          sentiment: 70 + (hash * 20),
+          source: 'Financial Times',
+          publishedAt: new Date().toISOString()
+        },
+        {
+          title: `${symbol} Invests in Renewable Energy Projects`,
+          summary: `${symbol} announced new investments in renewable energy to diversify its portfolio.`,
+          sentiment: 60 + (hash * 25),
+          source: 'Bloomberg',
+          publishedAt: new Date().toISOString()
+        },
+        {
+          title: `${symbol} Faces Environmental Regulations`,
+          summary: `${symbol} is dealing with new environmental regulations that could impact operations.`,
+          sentiment: 35 + (hash * 20),
+          source: 'Reuters',
+          publishedAt: new Date().toISOString()
+        }
+      );
+    } else {
+      // General articles
+      articles.push(
+        {
+          title: `${symbol} Reports Strong Q3 Earnings, Exceeds Expectations`,
+          summary: `${symbol} announced quarterly earnings that beat analyst estimates, driven by strong business performance.`,
+          sentiment: 75 + (hash * 20),
+          source: 'Financial Times',
+          publishedAt: new Date().toISOString()
+        },
+        {
+          title: `${symbol} Announces Strategic Partnership`,
+          summary: `${symbol} has formed a strategic partnership that could significantly expand its market reach.`,
+          sentiment: 70 + (hash * 25),
+          source: 'Bloomberg',
+          publishedAt: new Date().toISOString()
+        },
+        {
+          title: `${symbol} Stock Shows Strong Technical Momentum`,
+          summary: `${symbol} shares are showing positive technical indicators, suggesting continued upward movement.`,
+          sentiment: 65 + (hash * 20),
+          source: 'MarketWatch',
+          publishedAt: new Date().toISOString()
+        }
+      );
+    }
+    
+    return articles;
+  }
+
+  getStockSpecificThemes(stockType, hash) {
+    const themes = {
+      tech: ['earnings', 'ai_innovation', 'product_launch', 'regulation'],
+      financial: ['earnings', 'digital_banking', 'regulation', 'interest_rates'],
+      energy: ['earnings', 'renewable_energy', 'oil_prices', 'environmental_regs'],
+      general: ['earnings', 'partnership', 'market_momentum', 'business_growth']
+    };
+    
+    return themes[stockType] || themes.general;
+  }
+
+  async fetchRealNewsData(symbol) {
+    try {
+      console.log(`📰 [NewsSentimentAgent] Fetching real news data for ${symbol}`);
+      
+      // Try different news API providers
+      const newsProviders = [
+        { name: 'newsApi', enabled: !!config.apiKeys.newsApi },
+        { name: 'newsData', enabled: !!config.apiKeys.newsData },
+        { name: 'webz', enabled: !!config.apiKeys.webz }
+      ];
+
+      for (const provider of newsProviders) {
+        if (!provider.enabled) continue;
+        
+        try {
+          console.log(`🔄 [NewsSentimentAgent] Trying ${provider.name} API...`);
+          
+          switch (provider.name) {
+            case 'newsApi':
+              return await this.fetchFromNewsApi(symbol);
+            case 'newsData':
+              return await this.fetchFromNewsData(symbol);
+            case 'webz':
+              return await this.fetchFromWebz(symbol);
+            default:
+              console.log(`⚠️ [NewsSentimentAgent] Unknown provider: ${provider.name}`);
+          }
+        } catch (error) {
+          console.log(`❌ [NewsSentimentAgent] ${provider.name} failed:`, error.message);
+          continue;
+        }
+      }
+      
+      throw new Error('All news API providers failed');
+      
+    } catch (error) {
+      console.error(`💥 [NewsSentimentAgent] Error fetching real news data for ${symbol}:`, error);
+      throw new Error(`Failed to fetch news data: ${error.message}`);
+    }
+  }
+
+  async fetchFromNewsApi(symbol) {
+    if (!config.apiKeys.newsApi) {
+      throw new Error('News API key not configured');
+    }
+
+    const url = `${config.apiEndpoints.newsApi}/everything?q=${symbol}&language=en&sortBy=publishedAt&pageSize=10&apiKey=${config.apiKeys.newsApi}`;
+    const response = await axios.get(url);
+    
+    if (response.data.status === 'error') {
+      throw new Error(response.data.message);
+    }
+
+    const articles = response.data.articles.map(article => ({
+      title: article.title,
+      summary: article.description,
+      sentiment: this.calculateArticleSentiment(article.title + ' ' + article.description),
+      source: article.source.name,
+      publishedAt: article.publishedAt
+    }));
+
+    const overallScore = articles.reduce((sum, article) => sum + article.sentiment, 0) / articles.length;
+    
+    return {
+      symbol: symbol.toUpperCase(),
+      articles: articles,
+      sentimentAnalysis: {
+        overallScore: Math.round(overallScore),
+        keyThemes: this.extractThemesFromArticles(articles),
+        summary: `Overall sentiment for ${symbol} is ${overallScore > 60 ? 'positive' : overallScore < 40 ? 'negative' : 'neutral'}.`
+      },
+      socialSentiment: {
+        score: overallScore,
+        mentions: 0, // News API doesn't provide social data
+        trending: false
+      }
+    };
+  }
+
+  async fetchFromNewsData(symbol) {
+    if (!config.apiKeys.newsData) {
+      throw new Error('NewsData API key not configured');
+    }
+
+    const url = `${config.apiEndpoints.newsData}/news?apikey=${config.apiKeys.newsData}&q=${symbol}&language=en`;
+    const response = await axios.get(url);
+    
+    if (response.data.status === 'error') {
+      throw new Error(response.data.message);
+    }
+
+    const articles = response.data.results.map(article => ({
+      title: article.title,
+      summary: article.description,
+      sentiment: this.calculateArticleSentiment(article.title + ' ' + article.description),
+      source: article.source_id,
+      publishedAt: article.pubDate
+    }));
+
+    const overallScore = articles.reduce((sum, article) => sum + article.sentiment, 0) / articles.length;
+    
+    return {
+      symbol: symbol.toUpperCase(),
+      articles: articles,
+      sentimentAnalysis: {
+        overallScore: Math.round(overallScore),
+        keyThemes: this.extractThemesFromArticles(articles),
+        summary: `Overall sentiment for ${symbol} is ${overallScore > 60 ? 'positive' : overallScore < 40 ? 'negative' : 'neutral'}.`
+      },
+      socialSentiment: {
+        score: overallScore,
+        mentions: 0,
+        trending: false
+      }
+    };
+  }
+
+  async fetchFromWebz(symbol) {
+    if (!config.apiKeys.webz) {
+      throw new Error('Webz API key not configured');
+    }
+
+    const url = `${config.apiEndpoints.webz}?token=${config.apiKeys.webz}&q=${symbol}&format=json&size=10`;
+    const response = await axios.get(url);
+    
+    if (response.data.status === 'error') {
+      throw new Error(response.data.message);
+    }
+
+    const articles = response.data.posts.map(article => ({
+      title: article.title,
+      summary: article.text.substring(0, 200),
+      sentiment: this.calculateArticleSentiment(article.title + ' ' + article.text),
+      source: article.domain,
+      publishedAt: new Date(article.published * 1000).toISOString()
+    }));
+
+    const overallScore = articles.reduce((sum, article) => sum + article.sentiment, 0) / articles.length;
+    
+    return {
+      symbol: symbol.toUpperCase(),
+      articles: articles,
+      sentimentAnalysis: {
+        overallScore: Math.round(overallScore),
+        keyThemes: this.extractThemesFromArticles(articles),
+        summary: `Overall sentiment for ${symbol} is ${overallScore > 60 ? 'positive' : overallScore < 40 ? 'negative' : 'neutral'}.`
+      },
+      socialSentiment: {
+        score: overallScore,
+        mentions: 0,
+        trending: false
+      }
+    };
+  }
+
+  calculateArticleSentiment(text) {
+    // Simple sentiment calculation using VADER-like approach
+    const positiveWords = ['positive', 'good', 'great', 'excellent', 'strong', 'up', 'gain', 'profit', 'growth', 'success'];
+    const negativeWords = ['negative', 'bad', 'poor', 'weak', 'down', 'loss', 'decline', 'failure', 'risk', 'concern'];
+    
+    const words = text.toLowerCase().split(/\s+/);
+    let positiveCount = 0;
+    let negativeCount = 0;
+    
+    words.forEach(word => {
+      if (positiveWords.includes(word)) positiveCount++;
+      if (negativeWords.includes(word)) negativeCount++;
+    });
+    
+    const total = words.length;
+    const sentiment = ((positiveCount - negativeCount) / total) * 100 + 50;
+    
+    return Math.max(0, Math.min(100, sentiment));
+  }
+
+  extractThemesFromArticles(articles) {
+    const themes = new Set();
+    const commonThemes = ['earnings', 'revenue', 'profit', 'growth', 'market', 'stock', 'price', 'trading', 'investment'];
+    
+    articles.forEach(article => {
+      const text = (article.title + ' ' + article.summary).toLowerCase();
+      commonThemes.forEach(theme => {
+        if (text.includes(theme)) themes.add(theme);
+      });
+    });
+    
+    return Array.from(themes);
   }
 }
 

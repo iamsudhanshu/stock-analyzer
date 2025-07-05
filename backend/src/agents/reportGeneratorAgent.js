@@ -49,8 +49,13 @@ class ReportGeneratorAgent extends BaseAgent {
       const { symbol, analysisData } = payload;
       logger.info(`📋 [ReportGeneratorAgent] Generating comprehensive report for ${symbol}`);
 
-      // Provide default data structure if analysisData is missing or incomplete
-      const data = analysisData || this.generateMockAnalysisData(symbol);
+      // Use real data if available and not in mock mode
+      let data;
+      if (config.analysis.useMockData) {
+        data = this.generateMockAnalysisData(symbol);
+      } else {
+        data = analysisData || this.generateMockAnalysisData(symbol);
+      }
 
       const report = {
         symbol: symbol.toUpperCase(),
@@ -990,32 +995,34 @@ class ReportGeneratorAgent extends BaseAgent {
     return 'fundamental_analysis_template';
   }
 
-  async generateLLMEnhancedReport(symbol) {
+  async generateLLMEnhancedReport(symbol, analysisData) {
     try {
-      // Generate mock analysis data for report generation
-      const mockAnalysisData = this.generateMockAnalysisData(symbol);
-      
+      // Use real data if available and not in mock mode
+      let data;
+      if (config.analysis.useMockData) {
+        data = this.generateMockAnalysisData(symbol);
+      } else {
+        data = analysisData || this.generateMockAnalysisData(symbol);
+      }
+
       if (this.ollamaEnabled) {
         console.log('🧠 [ReportGeneratorAgent] Generating LLM-enhanced report...');
-        
         // Use LLM to analyze data and generate comprehensive report
-        const llmAnalysis = await this.generateLLMReportInsights(symbol, mockAnalysisData);
-        
-        const executiveSummary = await this.generateExecutiveSummary(symbol, mockAnalysisData);
-        const detailedAnalysis = await this.generateDetailedAnalysis(symbol, mockAnalysisData);
-        
+        const llmAnalysis = await this.generateLLMReportInsights(symbol, data);
+        const executiveSummary = await this.generateExecutiveSummary(symbol, data);
+        const detailedAnalysis = await this.generateDetailedAnalysis(symbol, data);
         return {
           symbol: symbol.toUpperCase(),
           report: {
             generatedAt: new Date().toISOString(),
             executiveSummary: executiveSummary,
             detailedAnalysis: detailedAnalysis,
-            technicalAnalysis: await this.generateTechnicalAnalysis(symbol, mockAnalysisData),
-            fundamentalAnalysis: await this.generateFundamentalAnalysis(symbol, mockAnalysisData),
-            riskAssessment: await this.generateRiskAssessment(symbol, mockAnalysisData),
-            investmentRecommendations: await this.generateRecommendations(symbol, mockAnalysisData),
-            marketOutlook: await this.generateMarketOutlook(symbol, mockAnalysisData),
-            appendices: await this.generateAppendices(symbol, mockAnalysisData)
+            technicalAnalysis: await this.generateTechnicalAnalysis(symbol, data),
+            fundamentalAnalysis: await this.generateFundamentalAnalysis(symbol, data),
+            riskAssessment: await this.generateRiskAssessment(symbol, data),
+            investmentRecommendations: await this.generateRecommendations(symbol, data),
+            marketOutlook: await this.generateMarketOutlook(symbol, data),
+            appendices: await this.generateAppendices(symbol, data)
           },
           executiveSummary: executiveSummary,
           detailedAnalysis: detailedAnalysis,
@@ -1027,13 +1034,8 @@ class ReportGeneratorAgent extends BaseAgent {
         throw new Error('Ollama service not available');
       }
     } catch (error) {
-      console.error('❌ [ReportGeneratorAgent] Error generating LLM-enhanced report:', error.message);
-      return {
-        symbol: symbol.toUpperCase(),
-        error: error.message,
-        llmEnhanced: false,
-        lastUpdated: new Date().toISOString()
-      };
+      console.error('❌ [ReportGeneratorAgent] Error in generateLLMEnhancedReport:', error);
+      throw error;
     }
   }
 
