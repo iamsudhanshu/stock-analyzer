@@ -200,24 +200,42 @@ class UIAgent extends BaseAgent {
             timestamp: new Date().toISOString(),
             payload: analysisPayload
           }).then(() => console.log('✅ [UIAgent] Published to stockData queue')),
-          redisClient.publish(config.queues.news, {
+          redisClient.publish(config.queues.newsSentiment, {
             requestId,
             agentType: 'UIAgent',
             timestamp: new Date().toISOString(),
             payload: analysisPayload
-          }).then(() => console.log('✅ [UIAgent] Published to news queue')),
+          }).then(() => console.log('✅ [UIAgent] Published to newsSentiment queue')),
           redisClient.publish(config.queues.fundamentalData, {
             requestId,
             agentType: 'UIAgent',
             timestamp: new Date().toISOString(),
             payload: analysisPayload
           }).then(() => console.log('✅ [UIAgent] Published to fundamentalData queue')),
-          redisClient.publish(config.queues.competitiveData, {
+          redisClient.publish(config.queues.competitiveAnalysis, {
             requestId,
             agentType: 'UIAgent',
             timestamp: new Date().toISOString(),
             payload: analysisPayload
-          }).then(() => console.log('✅ [UIAgent] Published to competitiveData queue')),
+          }).then(() => console.log('✅ [UIAgent] Published to competitiveAnalysis queue')),
+          redisClient.publish(config.queues.enhancedData, {
+            requestId,
+            agentType: 'UIAgent',
+            timestamp: new Date().toISOString(),
+            payload: analysisPayload
+          }).then(() => console.log('✅ [UIAgent] Published to enhancedData queue')),
+          redisClient.publish(config.queues.advancedTechnical, {
+            requestId,
+            agentType: 'UIAgent',
+            timestamp: new Date().toISOString(),
+            payload: analysisPayload
+          }).then(() => console.log('✅ [UIAgent] Published to advancedTechnical queue')),
+          redisClient.publish(config.queues.reportGeneration, {
+            requestId,
+            agentType: 'UIAgent',
+            timestamp: new Date().toISOString(),
+            payload: analysisPayload
+          }).then(() => console.log('✅ [UIAgent] Published to reportGeneration queue')),
           redisClient.publish(config.queues.analysis, {
             requestId,
             agentType: 'UIAgent',

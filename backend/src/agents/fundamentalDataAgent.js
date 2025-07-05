@@ -5,11 +5,11 @@ const OllamaService = require('../utils/ollama');
 
 class FundamentalDataAgent extends BaseAgent {
     constructor() {
-        super(
-            'FundamentalDataAgent',
-            [config.queues.fundamental],
-            [config.queues.analysis]
-        );
+            super(
+      'FundamentalDataAgent',
+      [config.queues.fundamentalData],
+      [config.queues.analysis]
+    );
         
         this.ollama = new OllamaService();
         this.ollamaEnabled = false;

@@ -5,11 +5,11 @@ const OllamaService = require('../utils/ollama');
 
 class CompetitiveAgent extends BaseAgent {
     constructor() {
-        super(
-            'CompetitiveAgent',
-            [config.queues.competitive],
-            [config.queues.analysis]
-        );
+            super(
+      'CompetitiveAgent',
+      [config.queues.competitiveAnalysis],
+      [config.queues.analysis]
+    );
         
         this.ollama = new OllamaService();
         this.ollamaEnabled = false;
