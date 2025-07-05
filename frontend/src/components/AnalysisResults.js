@@ -390,7 +390,7 @@ const AnalysisResults = ({ data }) => {
               </h1>
               <div className="flex items-center space-x-4 mt-1">
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  isLLMFailed 
+                  hasAnalysisWarning 
                     ? 'bg-amber-100 text-amber-800' 
                     : 'bg-green-100 text-green-800'
                 }`}>
