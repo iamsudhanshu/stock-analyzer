@@ -139,14 +139,14 @@ Each agent seamlessly integrates AI capabilities while maintaining traditional f
 ```bash
 # Core Ollama Configuration
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.1:8b
+OLLAMA_MODEL=llama4:maverick
 OLLAMA_ENABLED=true
 
 # Specialized Models for Different Tasks
-OLLAMA_SENTIMENT_MODEL=llama3.1:8b
-OLLAMA_ANALYSIS_MODEL=llama3.1:8b
-OLLAMA_TECHNICAL_MODEL=llama3.1:8b
-OLLAMA_ECONOMIC_MODEL=llama3.1:8b
+OLLAMA_SENTIMENT_MODEL=llama4:maverick
+OLLAMA_ANALYSIS_MODEL=llama4:maverick
+OLLAMA_TECHNICAL_MODEL=llama4:maverick
+OLLAMA_ECONOMIC_MODEL=llama4:maverick
 
 # Performance Tuning
 OLLAMA_TIMEOUT=60000
@@ -157,10 +157,10 @@ OLLAMA_MAX_RETRIES=1
 ```javascript
 // Optimized model selection based on task requirements
 const modelConfig = {
-  sentiment: 'llama3.1:8b',    // Balanced performance for text analysis
-  technical: 'mistral:7b',     // Fast inference for pattern recognition
-  economic: 'llama3.1:8b',     // Comprehensive reasoning for complex analysis
-  general: 'phi3:medium'       // Lightweight for general tasks
+  sentiment: 'llama4:maverick',    // Balanced performance for text analysis
+  technical: 'llama4:maverick',     // Fast inference for pattern recognition
+  economic: 'llama4:maverick',     // Comprehensive reasoning for complex analysis
+  general: 'llama4:maverick'       // Lightweight for general tasks
 };
 ```
 
@@ -170,7 +170,7 @@ const modelConfig = {
 
 | Model | Size | RAM Required | Speed | Use Case |
 |-------|------|-------------|-------|----------|
-| `llama3.1:8b` | ~5GB | 8GB+ | Good | **Recommended** - Best balance |
+| `llama4:maverick` | ~8GB | 12GB+ | Excellent | **Recommended** - Best balance |
 | `mistral:7b` | ~4GB | 6GB+ | Fast | Quick analysis, high throughput |
 | `phi3:medium` | ~8GB | 10GB+ | Medium | Specialized financial tasks |
 | `qwen2:7b` | ~4GB | 6GB+ | Fast | Alternative general model |
@@ -198,7 +198,7 @@ curl -fsSL https://ollama.ai/install.sh | sh
 ollama serve
 
 # 3. Pull recommended model
-ollama pull llama3.1:8b
+ollama pull llama4:maverick
 
 # 4. Use automated startup script
 ./scripts/start-with-ollama.sh
@@ -279,7 +279,7 @@ curl http://localhost:11434/api/tags
 tail -f backend/logs/app.log
 
 # Test specific model
-ollama run llama3.1:8b "Analyze Tesla stock outlook"
+ollama run llama4:maverick "Analyze Tesla stock outlook"
 
 # Monitor Redis for agent communication
 redis-cli monitor

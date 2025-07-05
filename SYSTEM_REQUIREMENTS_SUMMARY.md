@@ -50,7 +50,7 @@ Total Traditional App: 400MB storage, 1-4GB RAM
 ```
 Ollama Service: 100MB storage, 200-500MB RAM
 AI Models:
-├── llama3.1:8b (Recommended): 5GB storage, 8GB+ RAM
+├── llama4:maverick (Recommended): 8GB storage, 12GB+ RAM
 ├── mistral:7b (Fast): 4GB storage, 6GB+ RAM  
 ├── phi3:medium (Specialized): 8GB storage, 10GB+ RAM
 └── llama3.1:70b (Enterprise): 40GB storage, 64GB+ RAM
@@ -72,7 +72,7 @@ AMD Ryzen 7 Desktop: 8 cores, 16GB RAM
 Cost: $1,500-2,500 new, $800-1,500 used
 
 Performance: 8-15 second analysis, 2-3 concurrent users
-Model Recommendation: llama3.1:8b
+Model Recommendation: llama4:maverick
 Experience: Excellent for individual use
 ```
 
@@ -132,7 +132,7 @@ Note: May need GPU add-ons for large models
 
 ### **Analysis Speed by Configuration**
 
-| **Setup** | **llama3.1:8b** | **mistral:7b** | **Concurrent Users** |
+| **Setup** | **llama4:maverick** | **mistral:7b** | **Concurrent Users** |
 |-----------|------------------|----------------|---------------------|
 | **8GB RAM** | 15-20 seconds | 8-12 seconds | 1 user |
 | **16GB RAM** | 8-12 seconds | 5-8 seconds | 2-3 users |
@@ -179,7 +179,7 @@ Result: Can run comfortably on 8-12GB RAM systems
 ### **⚡ Performance Optimization**
 ```bash
 # Use larger model for better analysis
-ollama pull llama3.1:8b
+ollama pull llama4:maverick
 
 # Allow more concurrent processing
 export OLLAMA_NUM_PARALLEL=4
@@ -230,7 +230,7 @@ ollama --version
 ### **Performance Benchmark**
 ```bash
 # Test AI model speed
-time ollama run llama3.1:8b "Analyze Apple stock fundamentals"
+time ollama run llama4:maverick "Analyze Apple stock fundamentals"
 
 # Check memory usage during analysis
 htop # or Activity Monitor on macOS
@@ -246,7 +246,7 @@ iotop # Linux only
 ### **🥇 Best Overall Setup (Most Users)**
 ```
 Hardware: 8 cores, 16GB RAM, 500GB SSD
-Model: llama3.1:8b  
+Model: llama4:maverick  
 Cost: $1,200-2,000 (desktop) or $80-150/month (cloud)
 Performance: Excellent analysis quality in 8-12 seconds
 ```
@@ -273,7 +273,7 @@ Performance: Exceptional analysis quality in 3-5 seconds
 
 ```
 Do you have 16GB+ RAM? 
-├── YES → Use llama3.1:8b (recommended)
+├── YES → Use llama4:maverick (recommended)
 └── NO → Do you have 8-12GB RAM?
     ├── YES → Use mistral:7b (good performance)
     └── NO → Use traditional analysis only (still powerful!)

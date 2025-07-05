@@ -48,7 +48,7 @@ class AnalysisAgent extends BaseAgent {
           console.log('📥 [AnalysisAgent] Pulling recommended model for analysis...');
           logger.info('Pulling recommended model for analysis...');
           try {
-            await this.ollama.pullModel('llama3.1:8b');
+            await this.ollama.pullModel('llama4:maverick');
             console.log('✅ [AnalysisAgent] Model pull completed successfully');
           } catch (err) {
             console.warn('⚠️ [AnalysisAgent] Failed to pull model:', err.message);

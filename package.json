@@ -12,7 +12,7 @@
     "build:backend": "cd backend && npm run build",
     "build:frontend": "cd frontend && npm run build",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
-    "setup:ollama": "curl -fsSL https://ollama.ai/install.sh | sh && ollama pull llama3.1:8b",
+    "setup:ollama": "curl -fsSL https://ollama.ai/install.sh | sh && ollama pull llama4:maverick",
     "test": "npm run test:backend && npm run test:frontend",
     "test:backend": "cd backend && npm test",
     "test:frontend": "cd frontend && npm test"

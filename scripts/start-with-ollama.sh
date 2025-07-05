@@ -110,11 +110,11 @@ if [ "$OLLAMA_AVAILABLE" = true ]; then
             
             # Check for recommended model
             echo -e "${YELLOW}🔄 Checking for recommended model...${NC}"
-            if ollama list | grep -q "llama3.1:8b"; then
-                echo -e "${GREEN}✅ llama3.1:8b model found${NC}"
-            else
-                echo -e "${YELLOW}📥 Downloading llama3.1:8b model (this may take a while)...${NC}"
-                ollama pull llama3.1:8b
+            if ollama list | grep -q "llama4:maverick"; then
+  echo -e "${GREEN}✅ llama4:maverick model found${NC}"
+else
+  echo -e "${YELLOW}📥 Downloading llama4:maverick model (this may take a while)...${NC}"
+  ollama pull llama4:maverick
                 echo -e "${GREEN}✅ Model downloaded successfully${NC}"
             fi
         else

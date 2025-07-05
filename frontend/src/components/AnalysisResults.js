@@ -522,7 +522,7 @@ const AnalysisResults = ({ data }) => {
                       <h4 className="font-semibold text-blue-800 mb-2">How to Fix This:</h4>
                       <ul className="text-blue-700 text-sm space-y-1">
                         <li>• Ensure Ollama is running: <code className="bg-blue-100 px-1 rounded">ollama serve</code></li>
-                        <li>• Check if the model is available: <code className="bg-blue-100 px-1 rounded">ollama pull llama3.1:8b</code></li>
+                        <li>• Check if the model is available: <code className="bg-blue-100 px-1 rounded">ollama pull llama4:maverick</code></li>
                         <li>• Verify Ollama is accessible at: <code className="bg-blue-100 px-1 rounded">http://localhost:11434</code></li>
                         <li>• Restart the backend service after fixing Ollama</li>
                         <li>• Try analyzing {symbol} again after fixing the issue</li>

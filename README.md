@@ -53,7 +53,7 @@ graph TB
     
     subgraph "🧠 Local AI Layer"
         Ollama[Ollama Service<br/>Local LLM Server]
-        LLaMA[llama3.1:8b<br/>Financial Analysis Model]
+        LLaMA[llama4:maverick<br/>Financial Analysis Model]
         Mistral[mistral:7b<br/>Fast Processing Model]
         AICache[(AI Response Cache)]
     end
@@ -575,7 +575,7 @@ curl -fsSL https://ollama.ai/install.sh | sh
 ollama serve
 
 # In a new terminal, pull the recommended model
-ollama pull llama3.1:8b
+ollama pull llama4:maverick
 ```
 
 **Option 2: Manual Installation**
@@ -595,7 +595,7 @@ ollama serve
 **Recommended Models for Stock Analysis:**
 ```bash
 # Primary model (best balance of speed/quality)
-ollama pull llama3.1:8b
+ollama pull llama4:maverick
 
 # Alternative options:
 ollama pull mistral:7b       # Fast and efficient
@@ -607,7 +607,7 @@ ollama pull llama3.1:70b     # Best quality, needs 40GB+ RAM
 ```
 
 **Model Requirements:**
-- `llama3.1:8b`: ~5GB RAM, good balance
+- `llama4:maverick`: ~8GB RAM, excellent balance
 - `mistral:7b`: ~4GB RAM, fast
 - `phi3:medium`: ~8GB RAM, specialized
 - `llama3.1:70b`: ~40GB RAM, best quality
@@ -618,7 +618,7 @@ ollama pull llama3.1:70b     # Best quality, needs 40GB+ RAM
 curl http://localhost:11434/api/tags
 
 # Test a model
-ollama run llama3.1:8b "Analyze the stock market trend for tech companies"
+ollama run llama4:maverick "Analyze the stock market trend for tech companies"
 ```
 
 ### 5. Configure Environment Variables
@@ -640,7 +640,7 @@ REDIS_PORT=6379
 
 # Ollama Configuration (optional)
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.1:8b
+OLLAMA_MODEL=llama4:maverick
 OLLAMA_ENABLED=true
 ```
 
@@ -665,10 +665,10 @@ REDIS_PASSWORD=your_password
 
 # Ollama Configuration (AI Enhancement)
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.1:8b
-OLLAMA_SENTIMENT_MODEL=llama3.1:8b
-OLLAMA_ANALYSIS_MODEL=llama3.1:8b
-OLLAMA_TECHNICAL_MODEL=llama3.1:8b
+OLLAMA_MODEL=llama4:maverick
+OLLAMA_SENTIMENT_MODEL=llama4:maverick
+OLLAMA_ANALYSIS_MODEL=llama4:maverick
+OLLAMA_TECHNICAL_MODEL=llama4:maverick
 OLLAMA_TIMEOUT=60000
 OLLAMA_MAX_RETRIES=1
 OLLAMA_ENABLED=true

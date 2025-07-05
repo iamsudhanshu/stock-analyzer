@@ -33,16 +33,16 @@ const config = {
   // Ollama Configuration
   ollama: {
     baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
-    defaultModel: process.env.OLLAMA_MODEL || 'llama3.1:8b',
+    defaultModel: process.env.OLLAMA_MODEL || 'llama4:maverick',
     timeout: parseInt(process.env.OLLAMA_TIMEOUT) || 30000,
     maxRetries: parseInt(process.env.OLLAMA_MAX_RETRIES) || 3,
     enabled: process.env.OLLAMA_ENABLED !== 'false', // Default to enabled
     
     // Model preferences for different tasks
     models: {
-      sentiment: process.env.OLLAMA_SENTIMENT_MODEL || 'llama3.1:8b',
-      analysis: process.env.OLLAMA_ANALYSIS_MODEL || 'llama3.1:8b',
-      technical: process.env.OLLAMA_TECHNICAL_MODEL || 'llama3.1:8b'
+      sentiment: process.env.OLLAMA_SENTIMENT_MODEL || 'llama4:maverick',
+      analysis: process.env.OLLAMA_ANALYSIS_MODEL || 'llama4:maverick',
+      technical: process.env.OLLAMA_TECHNICAL_MODEL || 'llama4:maverick'
     },
     
     // Temperature settings for different tasks
@@ -55,7 +55,8 @@ const config = {
     
     // Model requirements and recommendations
     recommendedModels: [
-      'llama3.1:8b',
+      'llama4:maverick',
+      'llama4:sonar',
       'llama3.1:70b',
       'mistral:7b',
       'phi3:medium',

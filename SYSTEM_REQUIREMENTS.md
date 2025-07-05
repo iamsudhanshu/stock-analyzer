@@ -21,7 +21,7 @@ This document provides comprehensive system requirements for the **AI-enhanced s
 
 | Model | Model Size | RAM Required | VRAM (GPU) | CPU Cores | Performance | Use Case |
 |-------|------------|-------------|------------|-----------|-------------|----------|
-| **llama3.1:8b** | ~5GB | **8GB+** | 6GB+ | 4+ | Good | **Recommended balance** |
+| **llama4:maverick** | ~8GB | **12GB+** | 8GB+ | 4+ | Excellent | **Recommended balance** |
 | **mistral:7b** | ~4GB | **6GB+** | 4GB+ | 2+ | Fast | Quick analysis |
 | **phi3:medium** | ~8GB | **10GB+** | 8GB+ | 4+ | Specialized | Financial focus |
 | **qwen2:7b** | ~4GB | **6GB+** | 4GB+ | 4+ | Efficient | Alternative option |
@@ -30,7 +30,7 @@ This document provides comprehensive system requirements for the **AI-enhanced s
 ### **AI Performance Characteristics**
 
 ```
-Response Times (with llama3.1:8b):
+Response Times (with llama4:maverick):
 ├── Sentiment Analysis: 2-4 seconds
 ├── Technical Patterns: 3-6 seconds  
 ├── Investment Recommendations: 5-10 seconds
@@ -296,7 +296,7 @@ Application Security:
 - [ ] Redis 6.0+ server
 - [ ] Git for repository cloning
 - [ ] Ollama CLI tool
-- [ ] Recommended AI model (llama3.1:8b)
+- [ ] Recommended AI model (llama4:maverick)
 
 **Environment Setup:**
 - [ ] Configure API keys for data providers
@@ -331,7 +331,7 @@ Configuration: Standard AI
 CPU: 6-8 cores (Intel i7 / AMD Ryzen 7)
 RAM: 16GB
 Storage: 25GB SSD
-Model: llama3.1:8b
+Model: llama4:maverick
 Cost: $1,000-$2,000 (desktop) / $50-100/month (cloud)
 ```
 
@@ -341,7 +341,7 @@ Configuration: Professional
 CPU: 12-16 cores (Intel i9 / AMD Ryzen 9)
 RAM: 32GB
 Storage: 50GB NVMe SSD
-Model: llama3.1:8b or phi3:medium
+Model: llama4:maverick or phi3:medium
 Cost: $3,000-$5,000 (workstation) / $200-400/month (cloud)
 ```
 
@@ -359,13 +359,13 @@ Cost: $10,000+ (on-premise) / $1,000+/month (cloud)
 
 ## 🚀 Getting Started
 
-For most users, we recommend starting with the **Standard AI configuration** using **llama3.1:8b model**:
+For most users, we recommend starting with the **Standard AI configuration** using **llama4:maverick model**:
 
 ```bash
 # Quick start for most users
 curl -fsSL https://ollama.ai/install.sh | sh
 ollama serve
-ollama pull llama3.1:8b
+ollama pull llama4:maverick
 git clone https://github.com/iamsudhanshu/stock-analyzer.git
 cd stock-analyzer
 ./scripts/start-with-ollama.sh
