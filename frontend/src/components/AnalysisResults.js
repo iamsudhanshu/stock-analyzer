@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -34,8 +34,12 @@ import {
   FileText
 } from 'lucide-react';
 import DebugModal from './DebugModal';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const AnalysisResults = ({ data }) => {
+  const reportRef = useRef(null);
+  
   const [expandedSections, setExpandedSections] = useState({
     technical: true,
     sentiment: true,
@@ -57,6 +61,8 @@ const AnalysisResults = ({ data }) => {
     isOpen: false,
     agentData: null
   });
+
+  const [isExporting, setIsExporting] = useState(false);
 
   if (!data || !data.analysis) {
     return (
@@ -164,6 +170,66 @@ const AnalysisResults = ({ data }) => {
 
   const formatPercentage = (value) => {
     return `${(value * 100).toFixed(1)}%`;
+  };
+
+  // PDF Export function
+  const exportToPDF = async () => {
+    if (!reportRef.current) return;
+    
+    setIsExporting(true);
+    
+    try {
+      const element = reportRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        width: element.scrollWidth,
+        height: element.scrollHeight
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 295; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+      
+      // Add title page
+      pdf.setFontSize(24);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(`${symbol} Stock Analysis Report`, 105, 30, { align: 'center' });
+      
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 45, { align: 'center' });
+      pdf.text(`Analysis completed by AI-powered stock analysis system`, 105, 55, { align: 'center' });
+      
+      // Add the report content
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+      
+      // Add additional pages if content is longer than one page
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      
+      // Save the PDF
+      pdf.save(`${symbol}_Stock_Analysis_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // Debug button component
@@ -2016,7 +2082,7 @@ const AnalysisResults = ({ data }) => {
           
           {expandedSections.report && (
             <div className="p-6 slide-up">
-              <div className="prose prose-lg max-w-none">
+              <div ref={reportRef} className="prose prose-lg max-w-none">
                 {/* Executive Summary */}
                 {rawData.reportData.executiveSummary && (
                   <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl">
@@ -2401,10 +2467,28 @@ const AnalysisResults = ({ data }) => {
 
                 {/* Export Button */}
                 <div className="mt-8 text-center">
-                  <button className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 flex items-center mx-auto">
-                    <FileText className="h-5 w-5 mr-2" />
-                    Export Full Report (PDF)
+                  <button 
+                    onClick={exportToPDF}
+                    disabled={isExporting}
+                    className={`bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 flex items-center mx-auto ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {isExporting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                        Generating PDF...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="h-5 w-5 mr-2" />
+                        Export Full Report (PDF)
+                      </>
+                    )}
                   </button>
+                  {isExporting && (
+                    <p className="text-sm text-gray-600 mt-2">
+                      Please wait while we generate your PDF report...
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
