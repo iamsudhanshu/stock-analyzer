@@ -2136,14 +2136,14 @@ const AnalysisResults = ({ data }) => {
                 )}
 
                 {/* Investment Thesis */}
-                {rawData.reportData.investmentThesis && (
+                {rawData.reportData.executiveSummary?.investmentThesis && (
                   <div className="mb-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl">
                     <h4 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
                       <Target className="h-6 w-6 mr-2 text-green-600" />
                       Investment Thesis
                     </h4>
                     <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-                      {rawData.reportData.investmentThesis}
+                      {rawData.reportData.executiveSummary.investmentThesis}
                     </div>
                   </div>
                 )}
@@ -2155,47 +2155,246 @@ const AnalysisResults = ({ data }) => {
                       <Shield className="h-6 w-6 mr-2 text-red-600" />
                       Risk Assessment
                     </h4>
-                    <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-                      {rawData.reportData.riskAssessment}
-                    </div>
+                    {typeof rawData.reportData.riskAssessment === 'string' ? (
+                      <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                        {rawData.reportData.riskAssessment}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Overall Risk */}
+                        {rawData.reportData.riskAssessment.overallRisk && (
+                          <div className="bg-white rounded-lg p-4 mb-4">
+                            <h6 className="font-semibold text-gray-800 mb-2">Overall Risk Level</h6>
+                            <div className="flex items-center">
+                              <span className={`px-3 py-1 rounded-full font-semibold text-sm ${getStatusColor(rawData.reportData.riskAssessment.overallRisk)}`}>
+                                {rawData.reportData.riskAssessment.overallRisk.toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Risk Factors */}
+                        {rawData.reportData.riskAssessment.riskFactors && (
+                          <div className="bg-white rounded-lg p-4 mb-4">
+                            <h6 className="font-semibold text-gray-800 mb-2">Risk Factors by Category</h6>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {Object.entries(rawData.reportData.riskAssessment.riskFactors).map(([category, risk]) => (
+                                <div key={category} className="border-l-4 border-red-200 pl-3">
+                                  <div className="text-sm font-medium text-gray-700 capitalize">
+                                    {category.replace(/([A-Z])/g, ' $1').trim()}
+                                  </div>
+                                  <div className="text-sm text-gray-600 mt-1">
+                                    {typeof risk === 'string' ? risk : 'Risk assessed'}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Risk Metrics */}
+                        {rawData.reportData.riskAssessment.riskMetrics && (
+                          <div className="bg-white rounded-lg p-4 mb-4">
+                            <h6 className="font-semibold text-gray-800 mb-2">Risk Metrics</h6>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                              {Object.entries(rawData.reportData.riskAssessment.riskMetrics).map(([metric, value]) => (
+                                <div key={metric} className="text-center">
+                                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                    {metric.replace(/([A-Z])/g, ' $1').trim()}
+                                  </div>
+                                  <div className="text-lg font-bold text-gray-800 mt-1">
+                                    {value}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Mitigation Strategies */}
+                        {rawData.reportData.riskAssessment.mitigationStrategies && rawData.reportData.riskAssessment.mitigationStrategies.length > 0 && (
+                          <div className="bg-white rounded-lg p-4 mb-4">
+                            <h6 className="font-semibold text-gray-800 mb-2">Mitigation Strategies</h6>
+                            <ul className="space-y-2">
+                              {rawData.reportData.riskAssessment.mitigationStrategies.map((strategy, idx) => (
+                                <li key={idx} className="flex items-start">
+                                  <Shield className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                                  <span className="text-sm text-gray-700">{strategy}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Risk Timeline */}
+                        {rawData.reportData.riskAssessment.riskTimeline && (
+                          <div className="bg-white rounded-lg p-4">
+                            <h6 className="font-semibold text-gray-800 mb-2">Risk Timeline</h6>
+                            <div className="space-y-3">
+                              {Object.entries(rawData.reportData.riskAssessment.riskTimeline).map(([period, risks]) => (
+                                <div key={period} className="border-l-4 border-orange-200 pl-3">
+                                  <div className="text-sm font-medium text-gray-700 capitalize">
+                                    {period.replace(/([A-Z])/g, ' $1').trim()}
+                                  </div>
+                                  <div className="text-sm text-gray-600 mt-1">
+                                    {typeof risks === 'string' ? risks : Array.isArray(risks) ? risks.join(', ') : 'Risks assessed'}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* Valuation Analysis */}
-                {rawData.reportData.valuationAnalysis && (
+                {rawData.reportData.fundamentalAnalysis?.valuation && (
                   <div className="mb-8 p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl">
                     <h4 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
                       <DollarSign className="h-6 w-6 mr-2 text-purple-600" />
                       Valuation Analysis
                     </h4>
-                    <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-                      {rawData.reportData.valuationAnalysis}
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {Object.entries(rawData.reportData.fundamentalAnalysis.valuation).map(([metric, value]) => (
+                          <div key={metric} className="bg-white rounded-lg p-3 text-center">
+                            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                              {metric.replace(/([A-Z])/g, ' $1').trim()}
+                            </div>
+                            <div className="text-lg font-bold text-gray-800 mt-1">
+                              {value}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
 
                 {/* Technical Outlook */}
-                {rawData.reportData.technicalOutlook && (
+                {rawData.reportData.technicalAnalysis && (
                   <div className="mb-8 p-6 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl">
                     <h4 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
                       <LineChart className="h-6 w-6 mr-2 text-amber-600" />
-                      Technical Outlook
+                      Technical Analysis
                     </h4>
-                    <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-                      {rawData.reportData.technicalOutlook}
+                    <div className="space-y-4">
+                      {/* Price Action */}
+                      {rawData.reportData.technicalAnalysis.priceAction && (
+                        <div className="bg-white rounded-lg p-4 mb-4">
+                          <h6 className="font-semibold text-gray-800 mb-2">Price Action</h6>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {Object.entries(rawData.reportData.technicalAnalysis.priceAction).map(([key, value]) => (
+                              <div key={key} className="text-center">
+                                <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                  {key.replace(/([A-Z])/g, ' $1').trim()}
+                                </div>
+                                <div className="text-sm font-semibold text-gray-800 mt-1">
+                                  {typeof value === 'string' ? value : JSON.stringify(value)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Indicators */}
+                      {rawData.reportData.technicalAnalysis.indicators && (
+                        <div className="bg-white rounded-lg p-4 mb-4">
+                          <h6 className="font-semibold text-gray-800 mb-2">Technical Indicators</h6>
+                          <div className="space-y-3">
+                            {Object.entries(rawData.reportData.technicalAnalysis.indicators).map(([category, indicators]) => (
+                              <div key={category} className="border-l-4 border-amber-200 pl-3">
+                                <div className="text-sm font-medium text-gray-700 capitalize mb-2">
+                                  {category.replace(/([A-Z])/g, ' $1').trim()}
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                  {Object.entries(indicators).map(([indicator, value]) => (
+                                    <div key={indicator} className="text-center">
+                                      <div className="text-xs text-gray-500 uppercase">
+                                        {indicator}
+                                      </div>
+                                      <div className="text-sm font-semibold text-gray-800">
+                                        {typeof value === 'string' ? value : JSON.stringify(value)}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
 
-                {/* Recommendations */}
-                {rawData.reportData.recommendations && (
+                {/* Investment Recommendations */}
+                {rawData.reportData.investmentRecommendations && (
                   <div className="mb-8 p-6 bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl">
                     <h4 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
                       <CheckSquare className="h-6 w-6 mr-2 text-teal-600" />
-                      Recommendations
+                      Investment Recommendations
                     </h4>
-                    <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-                      {rawData.reportData.recommendations}
+                    <div className="space-y-4">
+                      {/* Summary */}
+                      {rawData.reportData.investmentRecommendations.summary && (
+                        <div className="bg-white rounded-lg p-4 mb-4">
+                          <h6 className="font-semibold text-gray-800 mb-2">Summary</h6>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {Object.entries(rawData.reportData.investmentRecommendations.summary).map(([key, value]) => (
+                              <div key={key} className="text-center">
+                                <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                  {key.replace(/([A-Z])/g, ' $1').trim()}
+                                </div>
+                                <div className="text-sm font-semibold text-gray-800 mt-1">
+                                  {typeof value === 'string' ? value : JSON.stringify(value)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Time Horizons */}
+                      {rawData.reportData.investmentRecommendations.timeHorizons && (
+                        <div className="bg-white rounded-lg p-4 mb-4">
+                          <h6 className="font-semibold text-gray-800 mb-2">Time Horizons</h6>
+                          <div className="space-y-3">
+                            {Object.entries(rawData.reportData.investmentRecommendations.timeHorizons).map(([period, recommendation]) => (
+                              <div key={period} className="border-l-4 border-teal-200 pl-3">
+                                <div className="text-sm font-medium text-gray-700 capitalize mb-1">
+                                  {period.replace(/([A-Z])/g, ' $1').trim()}
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  {typeof recommendation === 'string' ? recommendation : JSON.stringify(recommendation)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Position Sizing */}
+                      {rawData.reportData.investmentRecommendations.positionSizing && (
+                        <div className="bg-white rounded-lg p-4 mb-4">
+                          <h6 className="font-semibold text-gray-800 mb-2">Position Sizing</h6>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {Object.entries(rawData.reportData.investmentRecommendations.positionSizing).map(([strategy, size]) => (
+                              <div key={strategy} className="text-center">
+                                <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                  {strategy.replace(/([A-Z])/g, ' $1').trim()}
+                                </div>
+                                <div className="text-sm font-semibold text-gray-800 mt-1">
+                                  {typeof size === 'string' ? size : JSON.stringify(size)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
