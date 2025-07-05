@@ -600,9 +600,114 @@ const AnalysisResults = ({ data }) => {
                     <Sparkles className="h-5 w-5 mr-2 text-blue-600" />
                     Executive Summary
                   </h4>
-                  <p className="text-lg leading-relaxed text-gray-700">
-                    {analysis.recommendations.executiveSummary}
-                  </p>
+                  {typeof analysis.recommendations.executiveSummary === 'string' ? (
+                    <p className="text-lg leading-relaxed text-gray-700">
+                      {analysis.recommendations.executiveSummary}
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Title and Date */}
+                      <div className="text-center mb-4">
+                        <h5 className="text-xl font-bold text-gray-800 mb-2">
+                          {analysis.recommendations.executiveSummary.title}
+                        </h5>
+                        <p className="text-sm text-gray-600">
+                          {analysis.recommendations.executiveSummary.date}
+                        </p>
+                      </div>
+
+                      {/* Key Metrics */}
+                      {analysis.recommendations.executiveSummary.keyMetrics && (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                          {Object.entries(analysis.recommendations.executiveSummary.keyMetrics).map(([key, value]) => (
+                            <div key={key} className="bg-white rounded-lg p-3 text-center">
+                              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                {key.replace(/([A-Z])/g, ' $1').trim()}
+                              </div>
+                              <div className="text-lg font-bold text-gray-800 mt-1">
+                                {value}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Recommendation */}
+                      {analysis.recommendations.executiveSummary.recommendation && (
+                        <div className="bg-white rounded-lg p-4 mb-4">
+                          <h6 className="font-semibold text-gray-800 mb-2">Recommendation</h6>
+                          <div className="flex items-center justify-between">
+                            <span className={`px-3 py-1 rounded-full font-semibold text-sm ${getStatusColor(analysis.recommendations.executiveSummary.recommendation.action)}`}>
+                              {analysis.recommendations.executiveSummary.recommendation.action}
+                            </span>
+                            <span className="text-sm text-gray-600">
+                              {analysis.recommendations.executiveSummary.recommendation.confidence} confidence
+                            </span>
+                          </div>
+                          {analysis.recommendations.executiveSummary.recommendation.targetPrice && (
+                            <div className="mt-2 text-sm text-gray-600">
+                              Target Price: {analysis.recommendations.executiveSummary.recommendation.targetPrice}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Key Highlights */}
+                      {analysis.recommendations.executiveSummary.keyHighlights && analysis.recommendations.executiveSummary.keyHighlights.length > 0 && (
+                        <div className="bg-white rounded-lg p-4 mb-4">
+                          <h6 className="font-semibold text-gray-800 mb-2">Key Highlights</h6>
+                          <ul className="space-y-2">
+                            {analysis.recommendations.executiveSummary.keyHighlights.map((highlight, idx) => (
+                              <li key={idx} className="flex items-start">
+                                <CheckSquare className="h-4 w-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                                <span className="text-sm text-gray-700">{highlight}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Investment Thesis */}
+                      {analysis.recommendations.executiveSummary.investmentThesis && (
+                        <div className="bg-white rounded-lg p-4 mb-4">
+                          <h6 className="font-semibold text-gray-800 mb-2">Investment Thesis</h6>
+                          <p className="text-sm text-gray-700 leading-relaxed">
+                            {analysis.recommendations.executiveSummary.investmentThesis}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Risk Factors */}
+                      {analysis.recommendations.executiveSummary.riskFactors && analysis.recommendations.executiveSummary.riskFactors.length > 0 && (
+                        <div className="bg-white rounded-lg p-4 mb-4">
+                          <h6 className="font-semibold text-gray-800 mb-2">Risk Factors</h6>
+                          <ul className="space-y-2">
+                            {analysis.recommendations.executiveSummary.riskFactors.map((risk, idx) => (
+                              <li key={idx} className="flex items-start">
+                                <AlertTriangle className="h-4 w-4 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
+                                <span className="text-sm text-gray-700">{risk}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Catalysts */}
+                      {analysis.recommendations.executiveSummary.catalysts && analysis.recommendations.executiveSummary.catalysts.length > 0 && (
+                        <div className="bg-white rounded-lg p-4">
+                          <h6 className="font-semibold text-gray-800 mb-2">Key Catalysts</h6>
+                          <ul className="space-y-2">
+                            {analysis.recommendations.executiveSummary.catalysts.map((catalyst, idx) => (
+                              <li key={idx} className="flex items-start">
+                                <Zap className="h-4 w-4 text-yellow-500 mr-2 mt-0.5 flex-shrink-0" />
+                                <span className="text-sm text-gray-700">{catalyst}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {analysis.recommendations.overallRating && (
                     <div className="mt-4 flex items-center">
                       <div className={`px-4 py-2 rounded-lg font-semibold ${getStatusColor(analysis.recommendations.overallRating)}`}>
@@ -1919,9 +2024,114 @@ const AnalysisResults = ({ data }) => {
                       <Award className="h-6 w-6 mr-2 text-blue-600" />
                       Executive Summary
                     </h4>
-                    <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-                      {rawData.reportData.executiveSummary}
-                    </div>
+                    {typeof rawData.reportData.executiveSummary === 'string' ? (
+                      <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                        {rawData.reportData.executiveSummary}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Title and Date */}
+                        <div className="text-center mb-4">
+                          <h5 className="text-xl font-bold text-gray-800 mb-2">
+                            {rawData.reportData.executiveSummary.title}
+                          </h5>
+                          <p className="text-sm text-gray-600">
+                            {rawData.reportData.executiveSummary.date}
+                          </p>
+                        </div>
+
+                        {/* Key Metrics */}
+                        {rawData.reportData.executiveSummary.keyMetrics && (
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                            {Object.entries(rawData.reportData.executiveSummary.keyMetrics).map(([key, value]) => (
+                              <div key={key} className="bg-white rounded-lg p-3 text-center">
+                                <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                  {key.replace(/([A-Z])/g, ' $1').trim()}
+                                </div>
+                                <div className="text-lg font-bold text-gray-800 mt-1">
+                                  {value}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Recommendation */}
+                        {rawData.reportData.executiveSummary.recommendation && (
+                          <div className="bg-white rounded-lg p-4 mb-4">
+                            <h6 className="font-semibold text-gray-800 mb-2">Recommendation</h6>
+                            <div className="flex items-center justify-between">
+                              <span className={`px-3 py-1 rounded-full font-semibold text-sm ${getStatusColor(rawData.reportData.executiveSummary.recommendation.action)}`}>
+                                {rawData.reportData.executiveSummary.recommendation.action}
+                              </span>
+                              <span className="text-sm text-gray-600">
+                                {rawData.reportData.executiveSummary.recommendation.confidence} confidence
+                              </span>
+                            </div>
+                            {rawData.reportData.executiveSummary.recommendation.targetPrice && (
+                              <div className="mt-2 text-sm text-gray-600">
+                                Target Price: {rawData.reportData.executiveSummary.recommendation.targetPrice}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Key Highlights */}
+                        {rawData.reportData.executiveSummary.keyHighlights && rawData.reportData.executiveSummary.keyHighlights.length > 0 && (
+                          <div className="bg-white rounded-lg p-4 mb-4">
+                            <h6 className="font-semibold text-gray-800 mb-2">Key Highlights</h6>
+                            <ul className="space-y-2">
+                              {rawData.reportData.executiveSummary.keyHighlights.map((highlight, idx) => (
+                                <li key={idx} className="flex items-start">
+                                  <CheckSquare className="h-4 w-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                                  <span className="text-sm text-gray-700">{highlight}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Investment Thesis */}
+                        {rawData.reportData.executiveSummary.investmentThesis && (
+                          <div className="bg-white rounded-lg p-4 mb-4">
+                            <h6 className="font-semibold text-gray-800 mb-2">Investment Thesis</h6>
+                            <p className="text-sm text-gray-700 leading-relaxed">
+                              {rawData.reportData.executiveSummary.investmentThesis}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Risk Factors */}
+                        {rawData.reportData.executiveSummary.riskFactors && rawData.reportData.executiveSummary.riskFactors.length > 0 && (
+                          <div className="bg-white rounded-lg p-4 mb-4">
+                            <h6 className="font-semibold text-gray-800 mb-2">Risk Factors</h6>
+                            <ul className="space-y-2">
+                              {rawData.reportData.executiveSummary.riskFactors.map((risk, idx) => (
+                                <li key={idx} className="flex items-start">
+                                  <AlertTriangle className="h-4 w-4 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
+                                  <span className="text-sm text-gray-700">{risk}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Catalysts */}
+                        {rawData.reportData.executiveSummary.catalysts && rawData.reportData.executiveSummary.catalysts.length > 0 && (
+                          <div className="bg-white rounded-lg p-4">
+                            <h6 className="font-semibold text-gray-800 mb-2">Key Catalysts</h6>
+                            <ul className="space-y-2">
+                              {rawData.reportData.executiveSummary.catalysts.map((catalyst, idx) => (
+                                <li key={idx} className="flex items-start">
+                                  <Zap className="h-4 w-4 text-yellow-500 mr-2 mt-0.5 flex-shrink-0" />
+                                  <span className="text-sm text-gray-700">{catalyst}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
