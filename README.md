@@ -285,9 +285,28 @@ gantt
 - **Lucide React** - Icon library
 
 ### External APIs
-- **Stock Data**: Alpha Vantage, Finnhub, Twelve Data
-- **News**: NewsAPI, NewsData.io, Webz.io
-- **Social**: StockTwits, Twitter API v2
+
+| API Service | Endpoint | API Key Constant | Agent(s) | Status | Rate Limits |
+|-------------|----------|------------------|----------|--------|-------------|
+| **Alpha Vantage** | `https://www.alphavantage.co/query` | `ALPHA_VANTAGE_API_KEY` | StockDataAgent | ⚠️ Disabled | 5 req/min, 500/day |
+| **Finnhub** | `https://finnhub.io/api/v1` | `FINNHUB_API_KEY` | StockDataAgent | ⚠️ Disabled | 60 req/min, 30K/month |
+| **Twelve Data** | `https://api.twelvedata.com` | `TWELVE_DATA_API_KEY` | StockDataAgent | ✅ Active | 800 req/day |
+| **NewsAPI** | `https://newsapi.org/v2` | `NEWS_API_KEY` | NewsSentimentAgent | ⚠️ Disabled | 100 req/day |
+| **NewsData.io** | `https://newsdata.io/api/1` | `NEWSDATA_API_KEY` | NewsSentimentAgent | ✅ Active | 2000 req/day |
+| **Webz.io** | `https://api.webz.io/newsApiLite` | `WEBZ_API_KEY` | NewsSentimentAgent | ⚠️ Disabled | 1000 req/month |
+| **StockTwits** | `https://api.stocktwits.com/api/2` | `STOCKTWITS_ACCESS_TOKEN` | NewsSentimentAgent | 📋 Configured | Varies |
+| **Twitter API v2** | `https://api.twitter.com/2` | `TWITTER_BEARER_TOKEN` | NewsSentimentAgent | 📋 Configured | Varies |
+| **Twinword** | `https://api.twinword.com/v2` | `TWINWORD_API_KEY` | NewsSentimentAgent | 📋 Configured | Varies |
+| **Ollama** | `http://localhost:11434` | N/A | All Agents | ✅ Required | Local |
+| **Redis** | `localhost:6379` | N/A | All Agents | ✅ Required | Local |
+
+**Status Legend:**
+- ✅ **Active** - Currently being used in the application
+- ⚠️ **Disabled** - Configured but commented out in code (using mock data)
+- 📋 **Configured** - API key and endpoint configured but not implemented
+- 🔧 **Required** - Essential for application functionality
+
+**Note:** The application currently uses mock data generation for most external APIs. To enable real API calls, uncomment the desired providers in the respective agent files (`stockDataAgent.js` and `newsSentimentAgent.js`).
 
 ## 📁 Project Structure
 

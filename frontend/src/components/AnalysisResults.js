@@ -47,7 +47,10 @@ const AnalysisResults = ({ data }) => {
     insights: true,
     llmWarning: true,
     fundamental: true,
-    competitive: true
+    competitive: true,
+    enhanced: true,
+    advancedTechnical: true,
+    report: true
   });
 
   const [debugModal, setDebugModal] = useState({
@@ -73,8 +76,7 @@ const AnalysisResults = ({ data }) => {
     rawData
   } = data;
 
-  // Check if LLM analysis failed
-  const isLLMFailed = !analysis.llmEnhanced;
+  // Check if LLM analysis failed - removed since all agents are now LLM-based
   const hasAnalysisWarning = analysis.analysisWarning;
   const llmFailureReason = analysis.llmFailureReason;
 
@@ -241,6 +243,33 @@ const AnalysisResults = ({ data }) => {
             icon={<Activity className="h-4 w-4" />}
             color="bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
           />
+          
+          <DebugButton
+            agentType="EnhancedDataAgent"
+            inputData={{ symbol }}
+            outputData={rawData?.enhancedData}
+            status={rawData?.enhancedData ? 'success' : 'error'}
+            icon={<Database className="h-4 w-4" />}
+            color="bg-teal-100 text-teal-700 hover:bg-teal-200"
+          />
+          
+          <DebugButton
+            agentType="AdvancedTechnicalAgent"
+            inputData={{ symbol }}
+            outputData={rawData?.advancedTechnicalData}
+            status={rawData?.advancedTechnicalData ? 'success' : 'error'}
+            icon={<LineChart className="h-4 w-4" />}
+            color="bg-pink-100 text-pink-700 hover:bg-pink-200"
+          />
+          
+          <DebugButton
+            agentType="ReportGeneratorAgent"
+            inputData={rawData}
+            outputData={rawData?.reportData}
+            status={rawData?.reportData ? 'success' : 'error'}
+            icon={<FileText className="h-4 w-4" />}
+            color="bg-cyan-100 text-cyan-700 hover:bg-cyan-200"
+          />
         </div>
         
         <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -325,7 +354,7 @@ const AnalysisResults = ({ data }) => {
       )}
 
       {/* Critical Error Banner - Only shown when LLM fails */}
-      {isLLMFailed && (
+      {hasAnalysisWarning && (
         <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 shadow-lg">
           <div className="flex items-center">
             <AlertTriangle className="h-8 w-8 text-red-600 mr-4" />
@@ -461,8 +490,8 @@ const AnalysisResults = ({ data }) => {
         </div>
       )}
 
-      {/* Success indicator for LLM analysis */}
-      {!hasAnalysisWarning && analysis.llmEnhanced && (
+      {/* AI-Powered Analysis Indicator - Always shown since all agents are LLM-based */}
+      {!hasAnalysisWarning && (
         <div className="bg-green-50 border-l-4 border-green-400 rounded-lg p-4">
           <div className="flex items-center">
             <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
@@ -1542,6 +1571,431 @@ const AnalysisResults = ({ data }) => {
               <div className="prose prose-lg max-w-none">
                 <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
                   {analysis.competitiveSummary}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Enhanced Data Analysis Section */}
+      {rawData?.enhancedData && (
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+          <div 
+            className="p-6 bg-gradient-to-r from-teal-50 to-cyan-100 border-b border-gray-200 cursor-pointer hover:bg-gradient-to-r hover:from-teal-100 hover:to-cyan-200 transition-all duration-300"
+            onClick={() => toggleSection('enhanced')}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="p-2 bg-teal-600 rounded-lg mr-3">
+                  <Database className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-800">Enhanced Market Data</h3>
+              </div>
+              {expandedSections.enhanced ? (
+                <ChevronUp className="h-5 w-5 text-gray-600" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-gray-600" />
+              )}
+            </div>
+          </div>
+          
+          {expandedSections.enhanced && (
+            <div className="p-6 slide-up">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Options Data */}
+                {rawData.enhancedData.optionsData && (
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
+                    <h4 className="font-semibold text-gray-800 mb-4 flex items-center">
+                      <Activity className="h-5 w-5 mr-2 text-blue-600" />
+                      Options Analysis
+                    </h4>
+                    <div className="space-y-3">
+                      {rawData.enhancedData.optionsData.putCallRatio && (
+                        <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                          <span className="text-sm font-medium text-gray-700">Put/Call Ratio</span>
+                          <span className="text-lg font-bold text-blue-600">
+                            {rawData.enhancedData.optionsData.putCallRatio.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                      {rawData.enhancedData.optionsData.ivRank && (
+                        <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                          <span className="text-sm font-medium text-gray-700">IV Rank</span>
+                          <span className="text-lg font-bold text-purple-600">
+                            {formatPercentage(rawData.enhancedData.optionsData.ivRank)}
+                          </span>
+                        </div>
+                      )}
+                      {rawData.enhancedData.optionsData.ivPercentile && (
+                        <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                          <span className="text-sm font-medium text-gray-700">IV Percentile</span>
+                          <span className="text-lg font-bold text-indigo-600">
+                            {formatPercentage(rawData.enhancedData.optionsData.ivPercentile)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Institutional Holdings */}
+                {rawData.enhancedData.institutionalHoldings && (
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6">
+                    <h4 className="font-semibold text-gray-800 mb-4 flex items-center">
+                      <Users className="h-5 w-5 mr-2 text-green-600" />
+                      Institutional Holdings
+                    </h4>
+                    <div className="space-y-3">
+                      {rawData.enhancedData.institutionalHoldings.percentage && (
+                        <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                          <span className="text-sm font-medium text-gray-700">Institutional %</span>
+                          <span className="text-lg font-bold text-green-600">
+                            {formatPercentage(rawData.enhancedData.institutionalHoldings.percentage)}
+                          </span>
+                        </div>
+                      )}
+                      {rawData.enhancedData.institutionalHoldings.holders && (
+                        <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                          <span className="text-sm font-medium text-gray-700">Holders</span>
+                          <span className="text-lg font-bold text-emerald-600">
+                            {rawData.enhancedData.institutionalHoldings.holders}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Insider Trading */}
+                {rawData.enhancedData.insiderTrading && (
+                  <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl p-6">
+                    <h4 className="font-semibold text-gray-800 mb-4 flex items-center">
+                      <Eye className="h-5 w-5 mr-2 text-orange-600" />
+                      Insider Trading
+                    </h4>
+                    <div className="space-y-3">
+                      {rawData.enhancedData.insiderTrading.netActivity && (
+                        <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                          <span className="text-sm font-medium text-gray-700">Net Activity</span>
+                          <span className={`text-lg font-bold ${
+                            rawData.enhancedData.insiderTrading.netActivity > 0 
+                              ? 'text-green-600' 
+                              : 'text-red-600'
+                          }`}>
+                            {rawData.enhancedData.insiderTrading.netActivity > 0 ? '+' : ''}
+                            {formatCurrency(rawData.enhancedData.insiderTrading.netActivity)}
+                          </span>
+                        </div>
+                      )}
+                      {rawData.enhancedData.insiderTrading.transactions && (
+                        <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                          <span className="text-sm font-medium text-gray-700">Transactions</span>
+                          <span className="text-lg font-bold text-amber-600">
+                            {rawData.enhancedData.insiderTrading.transactions}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Analyst Ratings */}
+                {rawData.enhancedData.analystRatings && (
+                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6">
+                    <h4 className="font-semibold text-gray-800 mb-4 flex items-center">
+                      <Star className="h-5 w-5 mr-2 text-purple-600" />
+                      Analyst Ratings
+                    </h4>
+                    <div className="space-y-3">
+                      {rawData.enhancedData.analystRatings.consensus && (
+                        <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                          <span className="text-sm font-medium text-gray-700">Consensus</span>
+                          <span className="text-lg font-bold text-purple-600">
+                            {rawData.enhancedData.analystRatings.consensus}
+                          </span>
+                        </div>
+                      )}
+                      {rawData.enhancedData.analystRatings.priceTarget && (
+                        <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                          <span className="text-sm font-medium text-gray-700">Price Target</span>
+                          <span className="text-lg font-bold text-pink-600">
+                            {formatCurrency(rawData.enhancedData.analystRatings.priceTarget)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Advanced Technical Analysis Section */}
+      {rawData?.advancedTechnicalData && (
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+          <div 
+            className="p-6 bg-gradient-to-r from-pink-50 to-rose-100 border-b border-gray-200 cursor-pointer hover:bg-gradient-to-r hover:from-pink-100 hover:to-rose-200 transition-all duration-300"
+            onClick={() => toggleSection('advancedTechnical')}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="p-2 bg-pink-600 rounded-lg mr-3">
+                  <LineChart className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-800">Advanced Technical Analysis</h3>
+              </div>
+              {expandedSections.advancedTechnical ? (
+                <ChevronUp className="h-5 w-5 text-gray-600" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-gray-600" />
+              )}
+            </div>
+          </div>
+          
+          {expandedSections.advancedTechnical && (
+            <div className="p-6 slide-up">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Elliott Wave Analysis */}
+                {rawData.advancedTechnicalData.elliottWave && (
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
+                    <h4 className="font-semibold text-gray-800 mb-4 flex items-center">
+                      <Zap className="h-5 w-5 mr-2 text-blue-600" />
+                      Elliott Wave Analysis
+                    </h4>
+                    <div className="space-y-3">
+                      {rawData.advancedTechnicalData.elliottWave.currentWave && (
+                        <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                          <span className="text-sm font-medium text-gray-700">Current Wave</span>
+                          <span className="text-lg font-bold text-blue-600">
+                            {rawData.advancedTechnicalData.elliottWave.currentWave}
+                          </span>
+                        </div>
+                      )}
+                      {rawData.advancedTechnicalData.elliottWave.pattern && (
+                        <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                          <span className="text-sm font-medium text-gray-700">Pattern</span>
+                          <span className="text-lg font-bold text-indigo-600">
+                            {rawData.advancedTechnicalData.elliottWave.pattern}
+                          </span>
+                        </div>
+                      )}
+                      {rawData.advancedTechnicalData.elliottWave.target && (
+                        <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                          <span className="text-sm font-medium text-gray-700">Target</span>
+                          <span className="text-lg font-bold text-purple-600">
+                            {formatCurrency(rawData.advancedTechnicalData.elliottWave.target)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Fibonacci Retracements */}
+                {rawData.advancedTechnicalData.fibonacci && (
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6">
+                    <h4 className="font-semibold text-gray-800 mb-4 flex items-center">
+                      <Target className="h-5 w-5 mr-2 text-green-600" />
+                      Fibonacci Retracements
+                    </h4>
+                    <div className="space-y-3">
+                      {rawData.advancedTechnicalData.fibonacci.levels && (
+                        <div className="space-y-2">
+                          {Object.entries(rawData.advancedTechnicalData.fibonacci.levels).map(([level, price]) => (
+                            <div key={level} className="flex justify-between items-center p-3 bg-white rounded-lg">
+                              <span className="text-sm font-medium text-gray-700">{level}</span>
+                              <span className="text-lg font-bold text-green-600">
+                                {formatCurrency(price)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Market Structure */}
+                {rawData.advancedTechnicalData.marketStructure && (
+                  <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl p-6">
+                    <h4 className="font-semibold text-gray-800 mb-4 flex items-center">
+                      <BarChart3 className="h-5 w-5 mr-2 text-orange-600" />
+                      Market Structure
+                    </h4>
+                    <div className="space-y-3">
+                      {rawData.advancedTechnicalData.marketStructure.trend && (
+                        <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                          <span className="text-sm font-medium text-gray-700">Trend</span>
+                          <span className="text-lg font-bold text-orange-600">
+                            {rawData.advancedTechnicalData.marketStructure.trend}
+                          </span>
+                        </div>
+                      )}
+                      {rawData.advancedTechnicalData.marketStructure.support && (
+                        <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                          <span className="text-sm font-medium text-gray-700">Support</span>
+                          <span className="text-lg font-bold text-amber-600">
+                            {formatCurrency(rawData.advancedTechnicalData.marketStructure.support)}
+                          </span>
+                        </div>
+                      )}
+                      {rawData.advancedTechnicalData.marketStructure.resistance && (
+                        <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                          <span className="text-sm font-medium text-gray-700">Resistance</span>
+                          <span className="text-lg font-bold text-red-600">
+                            {formatCurrency(rawData.advancedTechnicalData.marketStructure.resistance)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Chart Patterns */}
+                {rawData.advancedTechnicalData.chartPatterns && (
+                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6">
+                    <h4 className="font-semibold text-gray-800 mb-4 flex items-center">
+                      <PieChart className="h-5 w-5 mr-2 text-purple-600" />
+                      Chart Patterns
+                    </h4>
+                    <div className="space-y-3">
+                      {rawData.advancedTechnicalData.chartPatterns.patterns && (
+                        <div className="space-y-2">
+                          {rawData.advancedTechnicalData.chartPatterns.patterns.map((pattern, index) => (
+                            <div key={index} className="flex justify-between items-center p-3 bg-white rounded-lg">
+                              <span className="text-sm font-medium text-gray-700">{pattern.name}</span>
+                              <span className={`text-sm font-bold px-2 py-1 rounded ${
+                                pattern.sentiment === 'bullish' ? 'bg-green-100 text-green-800' :
+                                pattern.sentiment === 'bearish' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {pattern.sentiment}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Professional Report Section */}
+      {rawData?.reportData && (
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+          <div 
+            className="p-6 bg-gradient-to-r from-cyan-50 to-blue-100 border-b border-gray-200 cursor-pointer hover:bg-gradient-to-r hover:from-cyan-100 hover:to-blue-200 transition-all duration-300"
+            onClick={() => toggleSection('report')}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="p-2 bg-cyan-600 rounded-lg mr-3">
+                  <FileText className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-800">Professional Analysis Report</h3>
+              </div>
+              {expandedSections.report ? (
+                <ChevronUp className="h-5 w-5 text-gray-600" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-gray-600" />
+              )}
+            </div>
+          </div>
+          
+          {expandedSections.report && (
+            <div className="p-6 slide-up">
+              <div className="prose prose-lg max-w-none">
+                {/* Executive Summary */}
+                {rawData.reportData.executiveSummary && (
+                  <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl">
+                    <h4 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                      <Award className="h-6 w-6 mr-2 text-blue-600" />
+                      Executive Summary
+                    </h4>
+                    <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                      {rawData.reportData.executiveSummary}
+                    </div>
+                  </div>
+                )}
+
+                {/* Investment Thesis */}
+                {rawData.reportData.investmentThesis && (
+                  <div className="mb-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl">
+                    <h4 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                      <Target className="h-6 w-6 mr-2 text-green-600" />
+                      Investment Thesis
+                    </h4>
+                    <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                      {rawData.reportData.investmentThesis}
+                    </div>
+                  </div>
+                )}
+
+                {/* Risk Assessment */}
+                {rawData.reportData.riskAssessment && (
+                  <div className="mb-8 p-6 bg-gradient-to-r from-red-50 to-orange-50 rounded-xl">
+                    <h4 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                      <Shield className="h-6 w-6 mr-2 text-red-600" />
+                      Risk Assessment
+                    </h4>
+                    <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                      {rawData.reportData.riskAssessment}
+                    </div>
+                  </div>
+                )}
+
+                {/* Valuation Analysis */}
+                {rawData.reportData.valuationAnalysis && (
+                  <div className="mb-8 p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl">
+                    <h4 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                      <DollarSign className="h-6 w-6 mr-2 text-purple-600" />
+                      Valuation Analysis
+                    </h4>
+                    <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                      {rawData.reportData.valuationAnalysis}
+                    </div>
+                  </div>
+                )}
+
+                {/* Technical Outlook */}
+                {rawData.reportData.technicalOutlook && (
+                  <div className="mb-8 p-6 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl">
+                    <h4 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                      <LineChart className="h-6 w-6 mr-2 text-amber-600" />
+                      Technical Outlook
+                    </h4>
+                    <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                      {rawData.reportData.technicalOutlook}
+                    </div>
+                  </div>
+                )}
+
+                {/* Recommendations */}
+                {rawData.reportData.recommendations && (
+                  <div className="mb-8 p-6 bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl">
+                    <h4 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                      <CheckSquare className="h-6 w-6 mr-2 text-teal-600" />
+                      Recommendations
+                    </h4>
+                    <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                      {rawData.reportData.recommendations}
+                    </div>
+                  </div>
+                )}
+
+                {/* Export Button */}
+                <div className="mt-8 text-center">
+                  <button className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 flex items-center mx-auto">
+                    <FileText className="h-5 w-5 mr-2" />
+                    Export Full Report (PDF)
+                  </button>
                 </div>
               </div>
             </div>

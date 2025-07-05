@@ -9,6 +9,9 @@ const StockDataAgent = require('./agents/stockDataAgent');
 const NewsSentimentAgent = require('./agents/newsSentimentAgent');
 const FundamentalDataAgent = require('./agents/fundamentalDataAgent');
 const CompetitiveAgent = require('./agents/competitiveAgent');
+const EnhancedDataAgent = require('./agents/enhancedDataAgent');
+const AdvancedTechnicalAgent = require('./agents/advancedTechnicalAgent');
+const ReportGeneratorAgent = require('./agents/reportGeneratorAgent');
 const AnalysisAgent = require('./agents/analysisAgent');
 const UIAgent = require('./agents/uiAgent');
 
@@ -72,6 +75,9 @@ class ApplicationManager {
       const newsSentimentAgent = new NewsSentimentAgent();
       const fundamentalDataAgent = new FundamentalDataAgent();
       const competitiveAgent = new CompetitiveAgent();
+      const enhancedDataAgent = new EnhancedDataAgent();
+      const advancedTechnicalAgent = new AdvancedTechnicalAgent();
+      const reportGeneratorAgent = new ReportGeneratorAgent();
       const analysisAgent = new AnalysisAgent();
 
       console.log('📦 [ApplicationManager] Created agents:', {
@@ -79,6 +85,9 @@ class ApplicationManager {
         NewsSentimentAgent: !!newsSentimentAgent,
         FundamentalDataAgent: !!fundamentalDataAgent,
         CompetitiveAgent: !!competitiveAgent,
+        EnhancedDataAgent: !!enhancedDataAgent,
+        AdvancedTechnicalAgent: !!advancedTechnicalAgent,
+        ReportGeneratorAgent: !!reportGeneratorAgent,
         AnalysisAgent: !!analysisAgent
       });
 
@@ -87,6 +96,9 @@ class ApplicationManager {
       this.agents.set('NewsSentimentAgent', newsSentimentAgent);
       this.agents.set('FundamentalDataAgent', fundamentalDataAgent);
       this.agents.set('CompetitiveAgent', competitiveAgent);
+      this.agents.set('EnhancedDataAgent', enhancedDataAgent);
+      this.agents.set('AdvancedTechnicalAgent', advancedTechnicalAgent);
+      this.agents.set('ReportGeneratorAgent', reportGeneratorAgent);
       this.agents.set('AnalysisAgent', analysisAgent);
 
       console.log('🔄 [ApplicationManager] Starting data agents in parallel...');
@@ -97,6 +109,9 @@ class ApplicationManager {
         newsSentimentAgent.start().then(() => console.log('✅ [ApplicationManager] NewsSentimentAgent started')),
         fundamentalDataAgent.start().then(() => console.log('✅ [ApplicationManager] FundamentalDataAgent started')),
         competitiveAgent.start().then(() => console.log('✅ [ApplicationManager] CompetitiveAgent started')),
+        enhancedDataAgent.start().then(() => console.log('✅ [ApplicationManager] EnhancedDataAgent started')),
+        advancedTechnicalAgent.start().then(() => console.log('✅ [ApplicationManager] AdvancedTechnicalAgent started')),
+        reportGeneratorAgent.start().then(() => console.log('✅ [ApplicationManager] ReportGeneratorAgent started')),
         analysisAgent.start().then(() => console.log('✅ [ApplicationManager] AnalysisAgent started'))
       ]);
 

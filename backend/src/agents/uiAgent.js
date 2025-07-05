@@ -9,13 +9,14 @@ const BaseAgent = require('./BaseAgent');
 const config = require('../config');
 const logger = require('../utils/logger');
 const redisClient = require('../utils/redis');
+const OllamaService = require('../utils/ollama');
 
 class UIAgent extends BaseAgent {
   constructor() {
     super(
       'UIAgent',
       [config.queues.ui],
-      [] // UI agent doesn't send to other queues
+      [config.queues.analysis]
     );
     
     this.app = express();
@@ -30,13 +31,41 @@ class UIAgent extends BaseAgent {
     this.activeRequests = new Map();
     this.socketConnections = new Map();
     
+    this.ollama = new OllamaService();
+    this.ollamaEnabled = false;
+    
+    // Initialize LLM capabilities
+    this.initializeLLM();
+    
     this.setupMiddleware();
     this.setupRoutes();
     this.setupSocketHandlers();
   }
 
+  async initializeLLM() {
+    try {
+      console.log('🧠 [UIAgent] Initializing LLM capabilities...');
+      this.ollamaEnabled = await this.ollama.isAvailable();
+      
+      if (this.ollamaEnabled) {
+        console.log('✅ [UIAgent] LLM capabilities enabled');
+        logger.info('UIAgent LLM capabilities enabled');
+      } else {
+        console.warn('⚠️ [UIAgent] LLM not available, using enhanced traditional methods');
+        logger.warn('UIAgent LLM not available, using enhanced traditional methods');
+      }
+    } catch (error) {
+      console.error('❌ [UIAgent] Error initializing LLM:', error.message);
+      logger.error('UIAgent LLM initialization error:', error);
+      this.ollamaEnabled = false;
+    }
+  }
+
   async start() {
     try {
+      // Initialize LLM first
+      await this.initializeLLM();
+      
       // Connect to Redis first
       if (!redisClient.isConnected) {
         await redisClient.connect();
@@ -563,6 +592,515 @@ class UIAgent extends BaseAgent {
       connectedSockets: this.socketConnections.size,
       port: config.server.port
     };
+  }
+
+  async processMessage(message) {
+    try {
+      console.log('📥 [UIAgent] Processing message:', {
+        requestId: message.requestId,
+        agentType: message.agentType,
+        status: message.status
+      });
+
+      if (!this.validateMessage(message)) {
+        logger.warn(`${this.agentName} received invalid message:`, message);
+        return;
+      }
+
+      const { requestId, payload } = message;
+      const { symbol, analysisData } = payload;
+
+      console.log('🎨 [UIAgent] Starting LLM-enhanced UI analysis for:', symbol);
+      
+      // Generate comprehensive UI recommendations with LLM insights
+      const result = await this.generateLLMEnhancedUIRecommendations(symbol, analysisData);
+      
+      console.log('✅ [UIAgent] Analysis completed:', {
+        requestId,
+        symbol,
+        hasData: !!result,
+        dataKeys: result ? Object.keys(result) : []
+      });
+
+      // Send result to analysis queue
+      await this.publishMessage(config.queues.analysis, {
+        requestId,
+        agentType: this.agentName,
+        status: 'success',
+        payload: result,
+        timestamp: new Date().toISOString()
+      });
+
+      logger.info(`${this.agentName} completed analysis for ${symbol}`);
+      
+    } catch (error) {
+      console.error('💥 [UIAgent] Error processing message:', error);
+      logger.error(`${this.agentName} error:`, error);
+      
+      // Send error result
+      if (message.requestId) {
+        await this.sendError(message.requestId, error);
+      }
+    }
+  }
+
+  async generateLLMEnhancedUIRecommendations(symbol, analysisData) {
+    try {
+      if (!this.ollamaEnabled) {
+        throw new Error('LLM is required for UIAgent analysis. Ollama service is not available.');
+      }
+      
+      console.log('🧠 [UIAgent] Generating LLM-enhanced UI recommendations...');
+      
+      // Use LLM to analyze data and generate UI insights
+      const llmAnalysis = await this.generateLLMUIInsights(symbol, analysisData);
+      
+      return {
+        symbol: symbol.toUpperCase(),
+        uiRecommendations: llmAnalysis,
+        llmEnhanced: true,
+        lastUpdated: new Date().toISOString()
+      };
+      
+    } catch (error) {
+      console.error('❌ [UIAgent] Error generating UI recommendations:', error);
+      logger.error('UIAgent data generation error:', error);
+      
+      // No fallback - throw error if LLM analysis fails
+      throw new Error(`UIAgent LLM analysis error: ${error.message}`);
+    }
+  }
+
+  async generateLLMUIInsights(symbol, analysisData) {
+    try {
+      const stockData = analysisData?.StockDataAgent || {};
+      const newsData = analysisData?.NewsSentimentAgent || {};
+      const fundamentalData = analysisData?.FundamentalDataAgent || {};
+      const competitiveData = analysisData?.CompetitiveAgent || {};
+
+      const prompt = `Analyze the following stock analysis data for ${symbol} and provide intelligent UI/UX recommendations:
+
+Stock Data:
+- Current Price: $${stockData.currentPrice || 'N/A'}
+- Technical Indicators: ${JSON.stringify(stockData.technicalIndicators || {})}
+- LLM Insights: ${stockData.llmInsights ? 'Available' : 'Not available'}
+
+News Sentiment:
+- Overall Score: ${newsData.sentimentAnalysis?.overallScore || 'N/A'}
+- Key Themes: ${JSON.stringify(newsData.sentimentAnalysis?.keyThemes || [])}
+- LLM Insights: ${newsData.llmInsights ? 'Available' : 'Not available'}
+
+Fundamental Data:
+- Financial Health: ${fundamentalData.fundamentals?.financialHealth?.rating || 'N/A'}
+- Valuation: ${fundamentalData.fundamentals?.valuation?.rating || 'N/A'}
+- LLM Insights: ${fundamentalData.llmInsights ? 'Available' : 'Not available'}
+
+Competitive Analysis:
+- Market Position: ${competitiveData.competitive?.marketPosition?.marketShare || 'N/A'}%
+- Competitive Score: ${competitiveData.competitive?.competitiveScore || 'N/A'}
+- LLM Insights: ${competitiveData.llmInsights ? 'Available' : 'Not available'}
+
+Please provide:
+1. Data visualization recommendations based on data complexity
+2. Information hierarchy and priority suggestions
+3. User interaction recommendations
+4. Alert and notification suggestions
+5. Mobile responsiveness considerations
+6. Accessibility recommendations
+7. Performance optimization suggestions
+
+Format your response as structured JSON with the following keys:
+- visualization: { charts, metrics, layout, complexity }
+- hierarchy: { priority, sections, flow, emphasis }
+- interaction: { features, alerts, notifications, actions }
+- responsiveness: { mobile, tablet, desktop, adaptive }
+- accessibility: { contrast, navigation, readability, compliance }
+- performance: { optimization, loading, caching, efficiency }
+
+Provide detailed, professional recommendations suitable for a financial analysis application.`;
+
+      const response = await this.ollama.generate(prompt, { 
+        maxTokens: 2000,
+        temperature: 0.3 
+      });
+
+      // Parse LLM response
+      const llmInsights = this.parseLLMResponse(response);
+      
+      return {
+        recommendations: llmInsights,
+        confidence: this.calculateConfidence(analysisData),
+        userExperience: this.generateUserExperienceInsights(analysisData),
+        implementation: this.generateImplementationGuidance(llmInsights)
+      };
+
+    } catch (error) {
+      console.error('❌ [UIAgent] LLM analysis failed:', error);
+      logger.error('UIAgent LLM analysis error:', error);
+      
+      // No fallback - throw error if LLM analysis fails
+      throw new Error(`UIAgent LLM analysis error: ${error.message}`);
+    }
+  }
+
+  parseLLMResponse(response) {
+    try {
+      // Handle both string and object responses from Ollama
+      const responseText = typeof response === 'string' ? response : response.text || response.content || '';
+      
+      // Try to parse JSON response with better error handling
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          return JSON.parse(jsonMatch[0]);
+        } catch (jsonError) {
+          console.log('⚠️ [UIAgent] JSON parsing failed, using fallback extraction');
+          // Continue to fallback extraction
+        }
+      }
+      
+      // Fallback: extract key insights from text
+      return {
+        visualization: {
+          charts: this.extractChartRecommendations(responseText),
+          metrics: this.extractMetricsRecommendations(responseText),
+          layout: this.extractLayoutRecommendations(responseText),
+          complexity: this.extractComplexityLevel(responseText)
+        },
+        hierarchy: {
+          priority: this.extractPriorityRecommendations(responseText),
+          sections: this.extractSectionRecommendations(responseText),
+          flow: this.extractFlowRecommendations(responseText),
+          emphasis: this.extractEmphasisRecommendations(responseText)
+        },
+        interaction: {
+          features: this.extractFeatureRecommendations(responseText),
+          alerts: this.extractAlertRecommendations(responseText),
+          notifications: this.extractNotificationRecommendations(responseText),
+          actions: this.extractActionRecommendations(responseText)
+        },
+        responsiveness: {
+          mobile: this.extractMobileRecommendations(responseText),
+          tablet: this.extractTabletRecommendations(responseText),
+          desktop: this.extractDesktopRecommendations(responseText),
+          adaptive: this.extractAdaptiveRecommendations(responseText)
+        },
+        accessibility: {
+          contrast: this.extractContrastRecommendations(responseText),
+          navigation: this.extractNavigationRecommendations(responseText),
+          readability: this.extractReadabilityRecommendations(responseText),
+          compliance: this.extractComplianceRecommendations(responseText)
+        },
+        performance: {
+          optimization: this.extractOptimizationRecommendations(responseText),
+          loading: this.extractLoadingRecommendations(responseText),
+          caching: this.extractCachingRecommendations(responseText),
+          efficiency: this.extractEfficiencyRecommendations(responseText)
+        }
+      };
+    } catch (error) {
+      console.error('❌ [UIAgent] Error parsing LLM response:', error);
+      throw new Error('UIAgent LLM response parsing error');
+    }
+  }
+
+  // Traditional UI analysis methods removed - system is now purely LLM-based
+  // All UI recommendations are generated by LLM agents with no traditional fallbacks
+
+  ensureReadability(analysisData) {
+    return {
+      font_size: 'adjustable',
+      line_spacing: 'comfortable',
+      text_contrast: 'high'
+    };
+  }
+
+  ensureCompliance(analysisData) {
+    return {
+      wcag: 'aa_compliant',
+      aria_labels: true,
+      keyboard_navigation: true
+    };
+  }
+
+  optimizePerformance(analysisData) {
+    return {
+      lazy_loading: true,
+      data_caching: true,
+      chart_optimization: true
+    };
+  }
+
+  optimizeLoading(analysisData) {
+    return {
+      skeleton_screens: true,
+      progressive_loading: true,
+      background_updates: true
+    };
+  }
+
+  optimizeCaching(analysisData) {
+    return {
+      data_cache: '1_hour',
+      chart_cache: '30_minutes',
+      api_cache: '5_minutes'
+    };
+  }
+
+  ensureEfficiency(analysisData) {
+    return {
+      bundle_size: 'optimized',
+      api_calls: 'minimized',
+      rendering: 'efficient'
+    };
+  }
+
+  // Helper methods for data extraction from LLM responses
+  extractChartRecommendations(response) {
+    const charts = [];
+    if (response.includes('price chart')) charts.push('price_chart');
+    if (response.includes('volume chart')) charts.push('volume_chart');
+    if (response.includes('technical chart')) charts.push('technical_chart');
+    if (response.includes('sentiment chart')) charts.push('sentiment_chart');
+    return charts;
+  }
+
+  extractMetricsRecommendations(response) {
+    const metrics = [];
+    if (response.includes('key metrics')) metrics.push('key_metrics');
+    if (response.includes('performance metrics')) metrics.push('performance_metrics');
+    if (response.includes('financial metrics')) metrics.push('financial_metrics');
+    return metrics;
+  }
+
+  extractLayoutRecommendations(response) {
+    if (response.includes('grid layout')) return 'grid_layout';
+    if (response.includes('card layout')) return 'card_layout';
+    if (response.includes('dashboard layout')) return 'dashboard_layout';
+    return 'standard_layout';
+  }
+
+  extractComplexityLevel(response) {
+    if (response.includes('high complexity')) return 'high';
+    if (response.includes('low complexity')) return 'low';
+    return 'medium';
+  }
+
+  extractPriorityRecommendations(response) {
+    const priorities = [];
+    if (response.includes('technical analysis priority')) priorities.push('technical_analysis');
+    if (response.includes('fundamental analysis priority')) priorities.push('fundamental_analysis');
+    if (response.includes('sentiment priority')) priorities.push('sentiment_analysis');
+    return priorities;
+  }
+
+  extractSectionRecommendations(response) {
+    const sections = [];
+    if (response.includes('overview section')) sections.push('overview');
+    if (response.includes('analysis section')) sections.push('analysis');
+    if (response.includes('recommendations section')) sections.push('recommendations');
+    return sections;
+  }
+
+  extractFlowRecommendations(response) {
+    if (response.includes('top down flow')) return 'top_down';
+    if (response.includes('bottom up flow')) return 'bottom_up';
+    return 'linear';
+  }
+
+  extractEmphasisRecommendations(response) {
+    const emphasis = [];
+    if (response.includes('highlight important')) emphasis.push('important_highlight');
+    if (response.includes('alert warnings')) emphasis.push('warning_alerts');
+    return emphasis;
+  }
+
+  extractFeatureRecommendations(response) {
+    const features = [];
+    if (response.includes('interactive charts')) features.push('interactive_charts');
+    if (response.includes('real time updates')) features.push('real_time_updates');
+    if (response.includes('comparison tools')) features.push('comparison_tools');
+    return features;
+  }
+
+  extractAlertRecommendations(response) {
+    const alerts = [];
+    if (response.includes('price alerts')) alerts.push('price_alerts');
+    if (response.includes('technical alerts')) alerts.push('technical_alerts');
+    if (response.includes('news alerts')) alerts.push('news_alerts');
+    return alerts;
+  }
+
+  extractNotificationRecommendations(response) {
+    const notifications = [];
+    if (response.includes('push notifications')) notifications.push('push_notifications');
+    if (response.includes('email notifications')) notifications.push('email_notifications');
+    return notifications;
+  }
+
+  extractActionRecommendations(response) {
+    const actions = [];
+    if (response.includes('buy action')) actions.push('buy');
+    if (response.includes('sell action')) actions.push('sell');
+    if (response.includes('watch action')) actions.push('watch');
+    return actions;
+  }
+
+  extractMobileRecommendations(response) {
+    if (response.includes('mobile optimized')) return { optimized: true, layout: 'mobile_friendly' };
+    return { optimized: false, layout: 'standard' };
+  }
+
+  extractTabletRecommendations(response) {
+    if (response.includes('tablet optimized')) return { optimized: true, layout: 'tablet_friendly' };
+    return { optimized: false, layout: 'standard' };
+  }
+
+  extractDesktopRecommendations(response) {
+    if (response.includes('desktop optimized')) return { optimized: true, layout: 'desktop_friendly' };
+    return { optimized: false, layout: 'standard' };
+  }
+
+  extractAdaptiveRecommendations(response) {
+    if (response.includes('adaptive design')) return 'adaptive';
+    return 'responsive';
+  }
+
+  extractContrastRecommendations(response) {
+    if (response.includes('high contrast')) return 'high_contrast';
+    if (response.includes('low contrast')) return 'low_contrast';
+    return 'standard_contrast';
+  }
+
+  extractNavigationRecommendations(response) {
+    if (response.includes('intuitive navigation')) return 'intuitive';
+    if (response.includes('simple navigation')) return 'simple';
+    return 'standard';
+  }
+
+  extractReadabilityRecommendations(response) {
+    if (response.includes('high readability')) return 'high';
+    if (response.includes('low readability')) return 'low';
+    return 'medium';
+  }
+
+  extractComplianceRecommendations(response) {
+    if (response.includes('accessibility compliant')) return 'compliant';
+    return 'basic';
+  }
+
+  extractOptimizationRecommendations(response) {
+    const optimizations = [];
+    if (response.includes('performance optimization')) optimizations.push('performance');
+    if (response.includes('loading optimization')) optimizations.push('loading');
+    return optimizations;
+  }
+
+  extractLoadingRecommendations(response) {
+    if (response.includes('fast loading')) return 'fast';
+    if (response.includes('slow loading')) return 'slow';
+    return 'standard';
+  }
+
+  extractCachingRecommendations(response) {
+    if (response.includes('aggressive caching')) return 'aggressive';
+    if (response.includes('minimal caching')) return 'minimal';
+    return 'standard';
+  }
+
+  extractEfficiencyRecommendations(response) {
+    if (response.includes('high efficiency')) return 'high';
+    if (response.includes('low efficiency')) return 'low';
+    return 'medium';
+  }
+
+  // generateFallbackAnalysis method removed - no fallbacks in LLM-only system
+
+  generateUserExperienceInsights(analysisData) {
+    return {
+      complexity: this.assessDataComplexity(analysisData),
+      dataQuality: this.assessDataQuality(analysisData),
+      userEngagement: this.assessUserEngagement(analysisData),
+      recommendations: this.generateUXRecommendations(analysisData)
+    };
+  }
+
+  assessDataComplexity(analysisData) {
+    if (!analysisData) return 'low';
+    
+    const agentCount = Object.keys(analysisData).length;
+    const hasLLM = Object.values(analysisData).some(agent => agent?.llmEnhanced);
+    
+    if (agentCount >= 5 && hasLLM) return 'high';
+    if (agentCount >= 3) return 'medium';
+    return 'low';
+  }
+
+  generateImplementationGuidance(recommendations) {
+    return {
+      priority: 'high',
+      effort: 'medium',
+      timeline: '2_weeks',
+      resources: ['frontend_developer', 'ui_designer'],
+      dependencies: ['api_integration', 'data_processing']
+    };
+  }
+
+  calculateConfidence(analysisData) {
+    let confidence = 50; // Base confidence
+    
+    if (!analysisData) return confidence;
+    
+    if (analysisData.StockDataAgent) confidence += 10;
+    if (analysisData.NewsSentimentAgent) confidence += 10;
+    if (analysisData.FundamentalDataAgent) confidence += 10;
+    if (analysisData.CompetitiveAgent) confidence += 10;
+    
+    // Bonus for LLM-enhanced data
+    Object.values(analysisData).forEach(agent => {
+      if (agent?.llmEnhanced) confidence += 5;
+    });
+    
+    return Math.min(confidence, 100);
+  }
+
+  assessDataQuality(analysisData) {
+    if (!analysisData) return 'poor';
+    
+    const agents = Object.keys(analysisData).length;
+    const hasLLM = Object.values(analysisData).some(agent => agent?.llmEnhanced);
+    
+    if (agents >= 4 && hasLLM) return 'excellent';
+    if (agents >= 3) return 'good';
+    if (agents >= 2) return 'fair';
+    return 'poor';
+  }
+
+  assessUserEngagement(analysisData) {
+    if (!analysisData) return 'medium';
+    
+    const hasAlerts = Object.values(analysisData).some(agent => 
+      agent?.llmInsights?.analysis?.riskAssessment?.risks?.length > 0
+    );
+    
+    if (hasAlerts) return 'high';
+    return 'medium';
+  }
+
+  generateUXRecommendations(analysisData) {
+    const recommendations = [];
+    
+    if (!analysisData) return recommendations;
+    
+    if (Object.values(analysisData).some(agent => agent?.llmEnhanced)) {
+      recommendations.push('highlight_ai_insights');
+    }
+    
+    if (Object.values(analysisData).some(agent => agent?.error)) {
+      recommendations.push('show_error_states');
+    }
+    
+    return recommendations;
   }
 }
 

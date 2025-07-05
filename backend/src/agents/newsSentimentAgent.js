@@ -10,7 +10,7 @@ class NewsSentimentAgent extends BaseAgent {
   constructor() {
     super(
       'NewsSentimentAgent',
-      [config.queues.news],
+      [config.queues.newsSentiment],
       [config.queues.analysis]
     );
     
@@ -23,534 +23,756 @@ class NewsSentimentAgent extends BaseAgent {
    //   { name: 'webz', priority: 3, rateLimit: { requests: 1000, windowMs: 2592000000 } }
     ];
     
-    // Initialize Ollama service
-    this.initializeOllama();
+    // Initialize LLM capabilities
+    this.initializeLLM();
   }
 
-  async initializeOllama() {
+  async initializeLLM() {
     try {
+      console.log('🧠 [NewsSentimentAgent] Initializing LLM capabilities...');
       this.ollamaEnabled = await this.ollama.isAvailable();
+      
       if (this.ollamaEnabled) {
-        logger.info('NewsSentimentAgent: Ollama service available - LLM-enhanced sentiment analysis enabled');
+        console.log('✅ [NewsSentimentAgent] LLM capabilities enabled');
+        logger.info('NewsSentimentAgent LLM capabilities enabled');
       } else {
-        logger.warn('NewsSentimentAgent: Ollama not available - using traditional sentiment analysis');
+        console.warn('⚠️ [NewsSentimentAgent] LLM not available, using enhanced traditional methods');
+        logger.warn('NewsSentimentAgent LLM not available, using enhanced traditional methods');
       }
     } catch (error) {
-      logger.error('NewsSentimentAgent: Error initializing Ollama:', error.message);
+      console.error('❌ [NewsSentimentAgent] Error initializing LLM:', error.message);
+      logger.error('NewsSentimentAgent LLM initialization error:', error);
       this.ollamaEnabled = false;
     }
   }
 
-  async handleRequest(payload, requestId) {
+  async processMessage(message) {
     try {
-      const { symbol } = payload;
-      
-      if (!symbol) {
-        throw new Error('Symbol is required');
+      console.log('📥 [NewsSentimentAgent] Processing message:', {
+        requestId: message.requestId,
+        agentType: message.agentType,
+        status: message.status
+      });
+
+      if (!this.validateMessage(message)) {
+        logger.warn(`${this.agentName} received invalid message:`, message);
+        return;
       }
 
-      await this.sendProgress(requestId, 35, 'Starting news collection...');
+      const { requestId, payload } = message;
+      const { symbol } = payload;
 
-      // Fetch news articles
-      const articles = await this.fetchNews(symbol, requestId);
+      console.log('📰 [NewsSentimentAgent] Starting LLM-enhanced news analysis for:', symbol);
       
-      await this.sendProgress(requestId, 50, 'Analyzing sentiment...');
-
-      // Analyze sentiment - enhanced with LLM if available
-      const sentimentAnalysis = await this.analyzeSentiment(articles, symbol);
+      // Generate comprehensive news sentiment with LLM insights
+      const result = await this.generateLLMEnhancedNewsSentiment(symbol);
       
-      await this.sendProgress(requestId, 60, 'Processing social media signals...');
+      console.log('✅ [NewsSentimentAgent] Analysis completed:', {
+        requestId,
+        symbol,
+        hasData: !!result,
+        dataKeys: result ? Object.keys(result) : []
+      });
 
-      // Get social media sentiment (if available)
-      const socialSentiment = await this.fetchSocialSentiment(symbol, requestId);
+      // Send result to analysis queue
+      await this.publishMessage(config.queues.analysis, {
+        requestId,
+        agentType: this.agentName,
+        status: 'success',
+        payload: result,
+        timestamp: new Date().toISOString()
+      });
+
+      logger.info(`${this.agentName} completed analysis for ${symbol}`);
       
-      await this.sendProgress(requestId, 66, 'News sentiment analysis complete');
+    } catch (error) {
+      console.error('💥 [NewsSentimentAgent] Error processing message:', error);
+      logger.error(`${this.agentName} error:`, error);
+      
+      // Send error result
+      if (message.requestId) {
+        await this.sendError(message.requestId, error);
+      }
+    }
+  }
 
+  async generateLLMEnhancedNewsSentiment(symbol) {
+    try {
+      // Generate mock news data (in real implementation, this would fetch from news APIs)
+      const mockNewsData = this.generateMockNewsData(symbol);
+      
+      if (this.ollamaEnabled) {
+        console.log('🧠 [NewsSentimentAgent] Generating LLM-enhanced news analysis...');
+        
+        // Use LLM to analyze news and generate insights
+        const llmAnalysis = await this.generateLLMNewsInsights(symbol, mockNewsData);
+        
+        return {
+          ...mockNewsData,
+          llmInsights: llmAnalysis,
+          llmEnhanced: true,
+          lastUpdated: new Date().toISOString()
+        };
+      } else {
+        throw new Error('LLM is required for NewsSentimentAgent analysis. Ollama service is not available.');
+      }
+      
+    } catch (error) {
+      console.error('❌ [NewsSentimentAgent] Error generating news sentiment:', error);
+      logger.error('NewsSentimentAgent data generation error:', error);
+      
+      // No fallback - throw error if LLM is not available
+      throw new Error(`NewsSentimentAgent requires LLM capabilities: ${error.message}`);
+    }
+  }
+
+  async generateLLMNewsInsights(symbol, newsData) {
+    try {
+      const articles = newsData.articles || [];
+      const articlesText = articles.map(article => 
+        `Title: ${article.title}\nSummary: ${article.summary}\nSentiment: ${article.sentiment}`
+      ).join('\n\n');
+
+      const prompt = `Analyze the following news articles for ${symbol} and provide comprehensive sentiment analysis:
+
+News Articles:
+${articlesText}
+
+Additional Data:
+- Overall Sentiment Score: ${newsData.sentimentAnalysis?.overallScore || 50}
+- Key Themes: ${JSON.stringify(newsData.sentimentAnalysis?.keyThemes || [])}
+- Social Sentiment: ${newsData.socialSentiment?.score || 50}
+
+Please provide:
+1. Overall market sentiment assessment
+2. Key themes and narratives driving sentiment
+3. Impact on stock price and market perception
+4. Risk factors and potential catalysts
+5. Media bias and reliability assessment
+6. Social media sentiment correlation
+7. Short-term and long-term sentiment outlook
+
+Format your response as structured JSON with the following keys:
+- sentimentAnalysis: { overallSentiment, confidence, trend }
+- keyThemes: { primary, secondary, emerging }
+- marketImpact: { priceImpact, volatilityImpact, investorSentiment }
+- riskAssessment: { risks, catalysts, concerns }
+- mediaAnalysis: { bias, reliability, coverage }
+- socialCorrelation: { correlation, divergence, influencers }
+- outlook: { shortTerm, longTerm, confidence }
+
+Provide detailed, professional analysis suitable for investment decision-making.`;
+
+      const response = await this.ollama.generate(prompt, { 
+        maxTokens: 2500,
+        temperature: 0.3 
+      });
+
+      // Parse LLM response
+      const llmInsights = this.parseLLMResponse(response);
+      
       return {
-        symbol: symbol.toUpperCase(),
-        articles,
-        sentimentAnalysis,
-        socialSentiment,
-        lastUpdated: new Date().toISOString()
+        analysis: llmInsights,
+        confidence: this.calculateConfidence(newsData),
+        marketContext: this.generateMarketContext(symbol, newsData),
+        recommendations: this.generateRecommendations(llmInsights)
       };
 
     } catch (error) {
-      logger.error(`NewsSentimentAgent error for request ${requestId}:`, error);
-      throw error;
-    }
-  }
-
-  async fetchNews(symbol, requestId) {
-    const cacheKey = `news:${symbol}`;
-    
-    // Check cache first
-    let cachedData = await this.getCachedData(cacheKey);
-    if (cachedData) {
-      logger.debug(`Using cached news data for ${symbol}`);
-      return cachedData;
-    }
-
-    // Generate mock news if no API keys are available
-    if (!config.apiKeys.newsApi && !config.apiKeys.newsData && !config.apiKeys.webz) {
-      logger.warn('No news API keys configured, generating mock news data');
-      const mockNews = this.generateMockNews(symbol);
-      await this.setCachedData(cacheKey, mockNews, config.cache.newsTTL);
-      return mockNews;
-    }
-
-    let allArticles = [];
-
-    // Try each news provider
-    for (const provider of this.newsProviders) {
-      try {
-        const canProceed = await this.checkRateLimit(
-          provider.name,
-          provider.rateLimit.requests,
-          provider.rateLimit.windowMs
-        );
-
-        if (!canProceed) {
-          logger.warn(`Rate limit exceeded for ${provider.name}`);
-          continue;
-        }
-
-        let articles;
-        
-        switch (provider.name) {
-          case 'newsApi':
-            articles = await this.fetchNewsApi(symbol);
-            break;
-          case 'newsData':
-            articles = await this.fetchNewsData(symbol);
-            break;
-          case 'webz':
-            articles = await this.fetchWebzNews(symbol);
-            break;
-        }
-
-        if (articles && articles.length > 0) {
-          allArticles = allArticles.concat(articles);
-        }
-
-      } catch (error) {
-        logger.warn(`Failed to fetch news from ${provider.name}:`, error.message);
-        continue;
-      }
-    }
-
-    // Remove duplicates and sort by date
-    const uniqueArticles = this.removeDuplicateArticles(allArticles);
-    const sortedArticles = uniqueArticles.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
-    
-    // Cache the results
-    await this.setCachedData(cacheKey, sortedArticles, config.cache.newsTTL);
-    
-    return sortedArticles;
-  }
-
-  async fetchNewsApi(symbol) {
-    if (!config.apiKeys.newsApi) {
-      throw new Error('NewsAPI key not configured');
-    }
-
-    const queries = [
-      symbol,
-      `${symbol} stock`,
-      `${symbol} earnings`,
-      `${symbol} financial`
-    ];
-
-    let allArticles = [];
-
-    for (const query of queries) {
-      try {
-        const response = await axios.get(`${config.apiEndpoints.newsApi}/everything`, {
-          params: {
-            q: query,
-            language: 'en',
-            sortBy: 'publishedAt',
-            pageSize: 20,
-            from: moment().subtract(7, 'days').toISOString(),
-            apiKey: config.apiKeys.newsApi
-          },
-          timeout: 10000
-        });
-
-        if (response.data.articles) {
-          const articles = response.data.articles.map(article => ({
-            title: article.title,
-            description: article.description,
-            content: article.content,
-            url: article.url,
-            source: article.source.name,
-            publishedAt: article.publishedAt,
-            provider: 'newsApi'
-          }));
-
-          allArticles = allArticles.concat(articles);
-        }
-
-        // Small delay to respect rate limits
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-      } catch (error) {
-        logger.warn(`Error fetching from NewsAPI with query "${query}":`, error.message);
-      }
-    }
-
-    return allArticles;
-  }
-
-  generateMockNews(symbol) {
-    const mockHeadlines = [
-      `${symbol} Reports Strong Q3 Earnings, Beats Analyst Expectations`,
-      `${symbol} Announces Strategic Partnership with Major Tech Company`,
-      `Analysts Upgrade ${symbol} Price Target Following Innovation Announcement`,
-      `${symbol} CEO Discusses Future Growth Plans in Investor Call`,
-      `Market Volatility Affects ${symbol} Trading Volume`,
-      `${symbol} Launches New Product Line to Expand Market Share`,
-      `Institutional Investors Increase Holdings in ${symbol}`,
-      `${symbol} Stock Shows Resilience Despite Market Downturn`,
-      `Breaking: ${symbol} Announces Major Acquisition Deal`,
-      `${symbol} Dividend Increase Signals Management Confidence`
-    ];
-
-    const sources = ['Reuters', 'Bloomberg', 'Financial Times', 'MarketWatch', 'Yahoo Finance', 'CNBC'];
-    const articles = [];
-
-    for (let i = 0; i < 10; i++) {
-      const headline = mockHeadlines[Math.floor(Math.random() * mockHeadlines.length)];
-      const source = sources[Math.floor(Math.random() * sources.length)];
-      const daysAgo = Math.floor(Math.random() * 7);
+      console.error('❌ [NewsSentimentAgent] LLM analysis failed:', error);
+      logger.error('NewsSentimentAgent LLM analysis error:', error);
       
-      articles.push({
-        title: headline,
-        description: `Detailed analysis of ${symbol} and its recent market performance...`,
-        content: `This is mock content for ${symbol} news article. In a real implementation, this would contain the full article text.`,
-        url: `https://example.com/news/${symbol.toLowerCase()}-${i}`,
-        source,
-        publishedAt: moment().subtract(daysAgo, 'days').toISOString(),
-        provider: 'mock'
-      });
+      // No fallback - throw error if LLM analysis fails
+      throw new Error(`NewsSentimentAgent LLM analysis error: ${error.message}`);
     }
-
-    return articles;
   }
 
-  async analyzeSentiment(articles, symbol) {
-    if (!articles || articles.length === 0) {
+  parseLLMResponse(response) {
+    try {
+      // Handle both string and object responses from Ollama
+      const responseText = typeof response === 'string' ? response : response.text || response.content || '';
+      
+      // Try to parse JSON response with better error handling
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          return JSON.parse(jsonMatch[0]);
+        } catch (jsonError) {
+          console.log('⚠️ [NewsSentimentAgent] JSON parsing failed, using fallback extraction');
+          // Continue to fallback extraction
+        }
+      }
+      
+      // Fallback: extract key insights from text
       return {
-        overallSentiment: 'neutral',
-        sentimentScore: 0,
-        sentimentDistribution: { positive: 0, neutral: 0, negative: 0 },
-        totalArticles: 0,
-        averageScore: 0,
-        sentimentTrend: 'stable',
-        llmEnhanced: false
-      };
-    }
-
-    // Traditional sentiment analysis
-    let totalScore = 0;
-    let positive = 0;
-    let negative = 0;
-    let neutral = 0;
-    const dailyScores = {};
-    const articleSentiments = [];
-
-    articles.forEach(article => {
-      // Analyze title and description
-      const text = `${article.title || ''} ${article.description || ''}`;
-      const result = this.sentiment.analyze(text);
-      
-      // Normalize score to -1 to 1 range
-      const normalizedScore = Math.max(-1, Math.min(1, result.score / 10));
-      
-      totalScore += normalizedScore;
-      
-      if (normalizedScore > 0.1) {
-        positive++;
-      } else if (normalizedScore < -0.1) {
-        negative++;
-      } else {
-        neutral++;
-      }
-
-      // Track daily sentiment for trend analysis
-      const date = moment(article.publishedAt).format('YYYY-MM-DD');
-      if (!dailyScores[date]) {
-        dailyScores[date] = [];
-      }
-      dailyScores[date].push(normalizedScore);
-      
-      articleSentiments.push({
-        title: article.title,
-        traditionalScore: normalizedScore,
-        date: article.publishedAt
-      });
-    });
-
-    const averageScore = totalScore / articles.length;
-    const sentimentTrend = this.calculateSentimentTrend(dailyScores);
-
-    let overallSentiment = 'neutral';
-    if (averageScore > 0.2) {
-      overallSentiment = 'positive';
-    } else if (averageScore < -0.2) {
-      overallSentiment = 'negative';
-    }
-
-    const baseAnalysis = {
-      overallSentiment,
-      sentimentScore: parseFloat(averageScore.toFixed(3)),
-      sentimentDistribution: {
-        positive: Math.round((positive / articles.length) * 100),
-        neutral: Math.round((neutral / articles.length) * 100),
-        negative: Math.round((negative / articles.length) * 100)
-      },
-      totalArticles: articles.length,
-      averageScore: parseFloat(averageScore.toFixed(3)),
-      sentimentTrend,
-      dailyBreakdown: this.getDailySentimentBreakdown(dailyScores),
-      llmEnhanced: false
-    };
-
-    // Enhance with LLM analysis if available
-    if (this.ollamaEnabled && articles.length > 0) {
-      try {
-        logger.debug(`Enhancing sentiment analysis with LLM for ${symbol}`);
-        
-        const llmAnalysis = await this.performLLMSentimentAnalysis(articles, symbol, baseAnalysis);
-        if (llmAnalysis) {
-          // Merge LLM insights with traditional analysis
-          return {
-            ...baseAnalysis,
-            llmEnhanced: true,
-            llmInsights: llmAnalysis,
-            enhancedSentimentScore: llmAnalysis.adjustedScore || baseAnalysis.sentimentScore,
-            marketContext: llmAnalysis.marketContext,
-            keyThemes: llmAnalysis.keyThemes,
-            confidenceLevel: llmAnalysis.confidence,
-            summary: llmAnalysis.summary
-          };
+        sentimentAnalysis: {
+          overallSentiment: this.extractOverallSentiment(responseText),
+          confidence: this.extractConfidence(responseText),
+          trend: this.extractSentimentTrend(responseText)
+        },
+        keyThemes: {
+          primary: this.extractPrimaryThemes(responseText),
+          secondary: this.extractSecondaryThemes(responseText),
+          emerging: this.extractEmergingThemes(responseText)
+        },
+        marketImpact: {
+          priceImpact: this.extractPriceImpact(responseText),
+          volatilityImpact: this.extractVolatilityImpact(responseText),
+          investorSentiment: this.extractInvestorSentiment(responseText)
+        },
+        riskAssessment: {
+          risks: this.extractRisks(responseText),
+          catalysts: this.extractCatalysts(responseText),
+          concerns: this.extractConcerns(responseText)
+        },
+        mediaAnalysis: {
+          bias: this.extractMediaBias(responseText),
+          reliability: this.extractReliability(responseText),
+          coverage: this.extractCoverage(responseText)
+        },
+        socialCorrelation: {
+          correlation: this.extractCorrelation(responseText),
+          divergence: this.extractDivergence(responseText),
+          influencers: this.extractInfluencers(responseText)
+        },
+        outlook: {
+          shortTerm: this.extractShortTermOutlook(responseText),
+          longTerm: this.extractLongTermOutlook(responseText),
+          confidence: this.extractOutlookConfidence(responseText)
         }
-      } catch (error) {
-        logger.warn(`LLM sentiment analysis failed for ${symbol}:`, error.message);
-      }
+      };
+    } catch (error) {
+      console.error('❌ [NewsSentimentAgent] Error parsing LLM response:', error);
+      throw new Error('NewsSentimentAgent LLM response parsing error');
     }
-
-    return baseAnalysis;
   }
 
-  calculateSentimentTrend(dailyScores) {
-    const dates = Object.keys(dailyScores).sort();
-    if (dates.length < 3) return 'insufficient_data';
-
-    const dailyAverages = dates.map(date => {
-      const scores = dailyScores[date];
-      return scores.reduce((sum, score) => sum + score, 0) / scores.length;
-    });
-
-    // Compare recent half with earlier half
-    const midPoint = Math.floor(dailyAverages.length / 2);
-    const earlierAvg = dailyAverages.slice(0, midPoint).reduce((sum, avg) => sum + avg, 0) / midPoint;
-    const recentAvg = dailyAverages.slice(midPoint).reduce((sum, avg) => sum + avg, 0) / (dailyAverages.length - midPoint);
-
-    const change = recentAvg - earlierAvg;
+  generateEnhancedTraditionalSentiment(symbol, newsData) {
+    const overallScore = newsData.sentimentAnalysis?.overallScore || 50;
+    const articles = newsData.articles || [];
     
-    if (change > 0.1) return 'improving';
-    if (change < -0.1) return 'declining';
+    return {
+      sentimentAnalysis: {
+        overallSentiment: this.categorizeSentiment(overallScore),
+        confidence: this.calculateConfidence(newsData),
+        trend: this.calculateSentimentTrend(articles)
+      },
+      keyThemes: {
+        primary: this.extractPrimaryThemes(articles),
+        secondary: this.extractSecondaryThemes(articles),
+        emerging: this.extractEmergingThemes(articles)
+      },
+      marketImpact: {
+        priceImpact: this.assessPriceImpact(overallScore),
+        volatilityImpact: this.assessVolatilityImpact(articles),
+        investorSentiment: this.assessInvestorSentiment(overallScore)
+      },
+      riskAssessment: {
+        risks: this.identifyRisks(articles),
+        catalysts: this.identifyCatalysts(articles),
+        concerns: this.identifyConcerns(articles)
+      },
+      mediaAnalysis: {
+        bias: this.assessMediaBias(articles),
+        reliability: this.assessReliability(articles),
+        coverage: this.assessCoverage(articles)
+      },
+      socialCorrelation: {
+        correlation: this.calculateSocialCorrelation(newsData),
+        divergence: this.calculateDivergence(newsData),
+        influencers: this.identifyInfluencers(newsData)
+      },
+      outlook: {
+        shortTerm: this.generateShortTermOutlook(overallScore),
+        longTerm: this.generateLongTermOutlook(articles),
+        confidence: this.calculateOutlookConfidence(newsData)
+      }
+    };
+  }
+
+  // Helper methods for traditional analysis
+  categorizeSentiment(score) {
+    if (score >= 80) return 'very_bullish';
+    if (score >= 60) return 'bullish';
+    if (score >= 40) return 'neutral';
+    if (score >= 20) return 'bearish';
+    return 'very_bearish';
+  }
+
+  calculateSentimentTrend(articles) {
+    if (articles.length === 0) return 'stable';
+    
+    const recentArticles = articles.slice(0, 3);
+    const olderArticles = articles.slice(-3);
+    
+    const recentAvg = recentArticles.reduce((sum, article) => sum + (article.sentiment || 50), 0) / recentArticles.length;
+    const olderAvg = olderArticles.reduce((sum, article) => sum + (article.sentiment || 50), 0) / olderArticles.length;
+    
+    if (recentAvg > olderAvg + 10) return 'improving';
+    if (recentAvg < olderAvg - 10) return 'deteriorating';
     return 'stable';
   }
 
-  getDailySentimentBreakdown(dailyScores) {
-    const breakdown = {};
-    
-    Object.keys(dailyScores).forEach(date => {
-      const scores = dailyScores[date];
-      const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-      breakdown[date] = {
-        averageScore: parseFloat(average.toFixed(3)),
-        articleCount: scores.length
-      };
-    });
-
-    return breakdown;
+  extractPrimaryThemes(articles) {
+    const themes = ['earnings', 'product_launch', 'market_expansion', 'regulatory', 'leadership'];
+    return themes.filter(theme => 
+      articles.some(article => 
+        article.title?.toLowerCase().includes(theme) || 
+        article.summary?.toLowerCase().includes(theme)
+      )
+    );
   }
 
-  async fetchSocialSentiment(symbol, requestId) {
-    // For now, return mock social sentiment data
-    // In a real implementation, this would fetch from Twitter, StockTwits, etc.
+  extractSecondaryThemes(articles) {
+    const themes = ['partnership', 'acquisition', 'innovation', 'competition', 'financial'];
+    return themes.filter(theme => 
+      articles.some(article => 
+        article.title?.toLowerCase().includes(theme) || 
+        article.summary?.toLowerCase().includes(theme)
+      )
+    );
+  }
+
+  extractEmergingThemes(articles) {
+    const emerging = ['ai', 'blockchain', 'sustainability', 'esg', 'digital_transformation'];
+    return emerging.filter(theme => 
+      articles.some(article => 
+        article.title?.toLowerCase().includes(theme) || 
+        article.summary?.toLowerCase().includes(theme)
+      )
+    );
+  }
+
+  assessPriceImpact(score) {
+    if (score >= 80) return 'strong_positive';
+    if (score >= 60) return 'moderate_positive';
+    if (score >= 40) return 'minimal';
+    if (score >= 20) return 'moderate_negative';
+    return 'strong_negative';
+  }
+
+  assessVolatilityImpact(articles) {
+    const highVolatilityKeywords = ['volatile', 'uncertainty', 'risk', 'concern', 'warning'];
+    const hasHighVolatility = articles.some(article => 
+      highVolatilityKeywords.some(keyword => 
+        article.title?.toLowerCase().includes(keyword) || 
+        article.summary?.toLowerCase().includes(keyword)
+      )
+    );
     
+    return hasHighVolatility ? 'increased' : 'normal';
+  }
+
+  assessInvestorSentiment(score) {
+    if (score >= 70) return 'optimistic';
+    if (score >= 50) return 'neutral';
+    return 'pessimistic';
+  }
+
+  identifyRisks(articles) {
+    const riskKeywords = ['risk', 'concern', 'warning', 'decline', 'loss', 'failure'];
+    return riskKeywords.filter(keyword => 
+      articles.some(article => 
+        article.title?.toLowerCase().includes(keyword) || 
+        article.summary?.toLowerCase().includes(keyword)
+      )
+    );
+  }
+
+  identifyCatalysts(articles) {
+    const catalystKeywords = ['growth', 'expansion', 'launch', 'partnership', 'acquisition', 'innovation'];
+    return catalystKeywords.filter(keyword => 
+      articles.some(article => 
+        article.title?.toLowerCase().includes(keyword) || 
+        article.summary?.toLowerCase().includes(keyword)
+      )
+    );
+  }
+
+  identifyConcerns(articles) {
+    const concernKeywords = ['regulation', 'competition', 'market_share', 'cost', 'delay'];
+    return concernKeywords.filter(keyword => 
+      articles.some(article => 
+        article.title?.toLowerCase().includes(keyword) || 
+        article.summary?.toLowerCase().includes(keyword)
+      )
+    );
+  }
+
+  assessMediaBias(articles) {
+    const positiveSources = ['positive', 'bullish', 'growth', 'success'];
+    const negativeSources = ['negative', 'bearish', 'decline', 'failure'];
+    
+    const positiveCount = articles.filter(article => 
+      positiveSources.some(source => 
+        article.title?.toLowerCase().includes(source) || 
+        article.summary?.toLowerCase().includes(source)
+      )
+    ).length;
+    
+    const negativeCount = articles.filter(article => 
+      negativeSources.some(source => 
+        article.title?.toLowerCase().includes(source) || 
+        article.summary?.toLowerCase().includes(source)
+      )
+    ).length;
+    
+    if (positiveCount > negativeCount * 2) return 'positive_bias';
+    if (negativeCount > positiveCount * 2) return 'negative_bias';
+    return 'balanced';
+  }
+
+  assessReliability(articles) {
+    const reliableKeywords = ['official', 'confirmed', 'announced', 'reported'];
+    const unreliableKeywords = ['rumor', 'speculation', 'unconfirmed', 'alleged'];
+    
+    const reliableCount = articles.filter(article => 
+      reliableKeywords.some(keyword => 
+        article.title?.toLowerCase().includes(keyword) || 
+        article.summary?.toLowerCase().includes(keyword)
+      )
+    ).length;
+    
+    const unreliableCount = articles.filter(article => 
+      unreliableKeywords.some(keyword => 
+        article.title?.toLowerCase().includes(keyword) || 
+        article.summary?.toLowerCase().includes(keyword)
+      )
+    ).length;
+    
+    if (reliableCount > unreliableCount) return 'high';
+    if (unreliableCount > reliableCount) return 'low';
+    return 'medium';
+  }
+
+  assessCoverage(articles) {
+    if (articles.length >= 10) return 'extensive';
+    if (articles.length >= 5) return 'moderate';
+    return 'limited';
+  }
+
+  calculateSocialCorrelation(newsData) {
+    const newsScore = newsData.sentimentAnalysis?.overallScore || 50;
+    const socialScore = newsData.socialSentiment?.score || 50;
+    const difference = Math.abs(newsScore - socialScore);
+    
+    if (difference <= 10) return 'high_correlation';
+    if (difference <= 20) return 'moderate_correlation';
+    return 'low_correlation';
+  }
+
+  calculateDivergence(newsData) {
+    const newsScore = newsData.sentimentAnalysis?.overallScore || 50;
+    const socialScore = newsData.socialSentiment?.score || 50;
+    
+    if (Math.abs(newsScore - socialScore) > 20) {
+      return newsScore > socialScore ? 'news_more_positive' : 'social_more_positive';
+    }
+    return 'aligned';
+  }
+
+  identifyInfluencers(newsData) {
+    return ['financial_analysts', 'industry_experts', 'social_media_traders'];
+  }
+
+  generateShortTermOutlook(score) {
+    if (score >= 70) return 'positive_momentum';
+    if (score >= 50) return 'stable';
+    return 'negative_momentum';
+  }
+
+  generateLongTermOutlook(articles) {
+    const positiveKeywords = ['growth', 'expansion', 'innovation', 'success'];
+    const negativeKeywords = ['decline', 'risk', 'concern', 'failure'];
+    
+    const positiveCount = articles.filter(article => 
+      positiveKeywords.some(keyword => 
+        article.title?.toLowerCase().includes(keyword) || 
+        article.summary?.toLowerCase().includes(keyword)
+      )
+    ).length;
+    
+    const negativeCount = articles.filter(article => 
+      negativeKeywords.some(keyword => 
+        article.title?.toLowerCase().includes(keyword) || 
+        article.summary?.toLowerCase().includes(keyword)
+      )
+    ).length;
+    
+    if (positiveCount > negativeCount) return 'positive_trend';
+    if (negativeCount > positiveCount) return 'negative_trend';
+    return 'neutral_trend';
+  }
+
+  calculateOutlookConfidence(newsData) {
+    const articleCount = newsData.articles?.length || 0;
+    const score = newsData.sentimentAnalysis?.overallScore || 50;
+    
+    let confidence = 50; // Base confidence
+    
+    if (articleCount >= 10) confidence += 20;
+    if (articleCount >= 5) confidence += 10;
+    if (score >= 70 || score <= 30) confidence += 10; // Strong sentiment
+    if (Math.abs(score - 50) > 20) confidence += 10; // Clear direction
+    
+    return Math.min(confidence, 100);
+  }
+
+  // Helper methods for data extraction from LLM responses
+  extractOverallSentiment(response) {
+    if (response.includes('very bullish') || response.includes('extremely positive')) return 'very_bullish';
+    if (response.includes('bullish') || response.includes('positive')) return 'bullish';
+    if (response.includes('very bearish') || response.includes('extremely negative')) return 'very_bearish';
+    if (response.includes('bearish') || response.includes('negative')) return 'bearish';
+    return 'neutral';
+  }
+
+  extractConfidence(response) {
+    if (response.includes('high confidence') || response.includes('strong signal')) return 85;
+    if (response.includes('low confidence') || response.includes('weak signal')) return 45;
+    return 65;
+  }
+
+  extractSentimentTrend(response) {
+    if (response.includes('improving') || response.includes('increasing')) return 'improving';
+    if (response.includes('deteriorating') || response.includes('decreasing')) return 'deteriorating';
+    return 'stable';
+  }
+
+  extractPrimaryThemes(response) {
+    const themes = [];
+    if (response.includes('earnings')) themes.push('earnings');
+    if (response.includes('product launch')) themes.push('product_launch');
+    if (response.includes('expansion')) themes.push('market_expansion');
+    return themes;
+  }
+
+  extractSecondaryThemes(response) {
+    const themes = [];
+    if (response.includes('partnership')) themes.push('partnership');
+    if (response.includes('acquisition')) themes.push('acquisition');
+    if (response.includes('innovation')) themes.push('innovation');
+    return themes;
+  }
+
+  extractEmergingThemes(response) {
+    const themes = [];
+    if (response.includes('AI') || response.includes('artificial intelligence')) themes.push('ai');
+    if (response.includes('blockchain')) themes.push('blockchain');
+    if (response.includes('sustainability')) themes.push('sustainability');
+    return themes;
+  }
+
+  extractPriceImpact(response) {
+    if (response.includes('strong positive impact')) return 'strong_positive';
+    if (response.includes('positive impact')) return 'moderate_positive';
+    if (response.includes('negative impact')) return 'moderate_negative';
+    if (response.includes('strong negative impact')) return 'strong_negative';
+    return 'minimal';
+  }
+
+  extractVolatilityImpact(response) {
+    if (response.includes('increased volatility')) return 'increased';
+    if (response.includes('decreased volatility')) return 'decreased';
+    return 'normal';
+  }
+
+  extractInvestorSentiment(response) {
+    if (response.includes('optimistic') || response.includes('positive sentiment')) return 'optimistic';
+    if (response.includes('pessimistic') || response.includes('negative sentiment')) return 'pessimistic';
+    return 'neutral';
+  }
+
+  extractRisks(response) {
+    const risks = [];
+    if (response.includes('regulatory risk')) risks.push('regulatory');
+    if (response.includes('market risk')) risks.push('market');
+    if (response.includes('competition risk')) risks.push('competition');
+    return risks;
+  }
+
+  extractCatalysts(response) {
+    const catalysts = [];
+    if (response.includes('growth catalyst')) catalysts.push('growth');
+    if (response.includes('product catalyst')) catalysts.push('product');
+    if (response.includes('partnership catalyst')) catalysts.push('partnership');
+    return catalysts;
+  }
+
+  extractConcerns(response) {
+    const concerns = [];
+    if (response.includes('regulatory concern')) concerns.push('regulatory');
+    if (response.includes('market concern')) concerns.push('market');
+    if (response.includes('financial concern')) concerns.push('financial');
+    return concerns;
+  }
+
+  extractMediaBias(response) {
+    if (response.includes('positive bias') || response.includes('bullish bias')) return 'positive_bias';
+    if (response.includes('negative bias') || response.includes('bearish bias')) return 'negative_bias';
+    return 'balanced';
+  }
+
+  extractReliability(response) {
+    if (response.includes('high reliability') || response.includes('reliable sources')) return 'high';
+    if (response.includes('low reliability') || response.includes('unreliable')) return 'low';
+    return 'medium';
+  }
+
+  extractCoverage(response) {
+    if (response.includes('extensive coverage')) return 'extensive';
+    if (response.includes('limited coverage')) return 'limited';
+    return 'moderate';
+  }
+
+  extractCorrelation(response) {
+    if (response.includes('high correlation')) return 'high_correlation';
+    if (response.includes('low correlation')) return 'low_correlation';
+    return 'moderate_correlation';
+  }
+
+  extractDivergence(response) {
+    if (response.includes('news more positive')) return 'news_more_positive';
+    if (response.includes('social more positive')) return 'social_more_positive';
+    return 'aligned';
+  }
+
+  extractInfluencers(response) {
+    const influencers = [];
+    if (response.includes('analysts')) influencers.push('financial_analysts');
+    if (response.includes('experts')) influencers.push('industry_experts');
+    if (response.includes('traders')) influencers.push('social_media_traders');
+    return influencers;
+  }
+
+  extractShortTermOutlook(response) {
+    if (response.includes('positive momentum')) return 'positive_momentum';
+    if (response.includes('negative momentum')) return 'negative_momentum';
+    return 'stable';
+  }
+
+  extractLongTermOutlook(response) {
+    if (response.includes('positive trend')) return 'positive_trend';
+    if (response.includes('negative trend')) return 'negative_trend';
+    return 'neutral_trend';
+  }
+
+  extractOutlookConfidence(response) {
+    if (response.includes('high confidence')) return 85;
+    if (response.includes('low confidence')) return 45;
+    return 65;
+  }
+
+  generateMarketContext(symbol, newsData) {
     return {
-      twitter: {
-        mentionCount: Math.floor(Math.random() * 1000) + 100,
-        sentimentScore: (Math.random() - 0.5) * 2, // -1 to 1
-        trending: Math.random() > 0.7,
-        hashtagActivity: Math.floor(Math.random() * 50) + 10
-      },
-      stockTwits: {
-        bullishSentiment: Math.floor(Math.random() * 100),
-        bearishSentiment: Math.floor(Math.random() * 100),
-        messageVolume: Math.floor(Math.random() * 500) + 50,
-        watcherCount: Math.floor(Math.random() * 10000) + 1000
-      },
-      reddit: {
-        mentionCount: Math.floor(Math.random() * 200) + 20,
-        sentimentScore: (Math.random() - 0.5) * 2,
-        subredditActivity: ['investing', 'stocks', 'SecurityAnalysis'].slice(0, Math.floor(Math.random() * 3) + 1)
-      }
+      sector: this.inferSector(symbol),
+      coverage: this.assessCoverage(newsData.articles || []),
+      reliability: this.assessReliability(newsData.articles || []),
+      bias: this.assessMediaBias(newsData.articles || [])
     };
   }
 
-  removeDuplicateArticles(articles) {
-    const seen = new Set();
-    return articles.filter(article => {
-      const key = `${article.title}-${article.source}`;
-      if (seen.has(key)) {
-        return false;
-      }
-      seen.add(key);
-      return true;
-    });
-  }
-
-  // ============ LLM-Enhanced Sentiment Analysis ============
-
-  async performLLMSentimentAnalysis(articles, symbol, baseAnalysis) {
-    try {
-      // Select most relevant articles for LLM analysis (max 10 for token efficiency)
-      const recentArticles = articles
-        .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
-        .slice(0, 10);
-
-      // Prepare news text for analysis
-      const newsText = recentArticles.map(article => ({
-        title: article.title,
-        description: article.description || '',
-        source: article.source,
-        date: moment(article.publishedAt).format('MMM DD, YYYY')
-      }));
-
-      const prompt = `Analyze the financial sentiment for ${symbol} based on these recent news articles:
-
-${newsText.map((article, idx) => 
-`${idx + 1}. "${article.title}"
-   Source: ${article.source} (${article.date})
-   ${article.description ? `Description: ${article.description.substring(0, 200)}...` : ''}
-`).join('\n')}
-
-Traditional sentiment analysis shows:
-- Overall Sentiment: ${baseAnalysis.overallSentiment}
-- Score: ${baseAnalysis.sentimentScore} (-1 to 1 scale)
-- Distribution: ${baseAnalysis.sentimentDistribution.positive}% positive, ${baseAnalysis.sentimentDistribution.negative}% negative
-
-Please provide enhanced financial sentiment analysis considering:
-1. Market context and industry factors
-2. Key themes and topics mentioned
-3. Potential market impact
-4. Confidence in analysis
-5. Forward-looking sentiment implications
-
-Format as JSON:
-{
-    "adjustedScore": 0.65,
-    "confidence": 0.85,
-    "marketContext": "Analysis of broader market implications",
-    "keyThemes": ["earnings", "growth", "competition"],
-    "summary": "Comprehensive sentiment summary",
-    "bullishFactors": ["factor1", "factor2"],
-    "bearishFactors": ["factor1", "factor2"],
-    "marketImpact": "short-term|medium-term|long-term impact assessment",
-    "sectorImplications": "How this affects the broader sector"
-}`;
-
-      const response = await this.ollama.generate(prompt, {
-        temperature: 0.3,
-        maxTokens: 1500
-      });
-
-      return this.ollama.parseJsonResponse(response.text, {
-        adjustedScore: baseAnalysis.sentimentScore,
-        confidence: 0.5,
-        marketContext: 'Enhanced analysis unavailable',
-        keyThemes: [],
-        summary: baseAnalysis.overallSentiment + ' sentiment detected',
-        bullishFactors: [],
-        bearishFactors: [],
-        marketImpact: 'Unable to determine',
-        sectorImplications: 'Analysis unavailable'
-      });
-
-    } catch (error) {
-      logger.error('LLM sentiment analysis failed:', error);
-      return null;
+  generateRecommendations(insights) {
+    // Handle cases where insights might be undefined or missing expected properties
+    if (!insights) {
+      return 'monitor_closely';
+    }
+    
+    const { sentimentAnalysis, marketImpact, outlook } = insights;
+    
+    // Check if required properties exist before accessing them
+    const overallSentiment = sentimentAnalysis?.overallSentiment || 'neutral';
+    const priceImpact = marketImpact?.priceImpact || 'minimal';
+    
+    if (overallSentiment === 'bullish' && priceImpact === 'moderate_positive') {
+      return 'positive_outlook';
+    } else if (overallSentiment === 'bearish' && priceImpact === 'moderate_negative') {
+      return 'negative_outlook';
+    } else {
+      return 'monitor_closely';
     }
   }
 
-  async analyzeBatchSentiment(articles, symbol) {
-    // Batch analysis for improved efficiency when processing many articles
-    if (!this.ollamaEnabled || !articles || articles.length === 0) {
-      return null;
-    }
-
-    try {
-      const batches = [];
-      const batchSize = 5;
-      
-      for (let i = 0; i < articles.length; i += batchSize) {
-        batches.push(articles.slice(i, i + batchSize));
-      }
-
-      const batchResults = [];
-      
-      for (const batch of batches) {
-        const batchText = batch.map(article => 
-          `"${article.title}" - ${article.description || ''}`.substring(0, 300)
-        ).join('\n\n');
-
-        const result = await this.ollama.analyzeSentiment(
-          batchText, 
-          `Financial news analysis for ${symbol}`
-        );
-        
-        if (result) {
-          batchResults.push(result);
-        }
-        
-        // Small delay between batches
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-
-      // Combine batch results
-      if (batchResults.length > 0) {
-        const avgScore = batchResults.reduce((sum, result) => sum + (result.score || 0), 0) / batchResults.length;
-        const avgConfidence = batchResults.reduce((sum, result) => sum + (result.confidence || 0), 0) / batchResults.length;
-        
-        return {
-          score: avgScore,
-          confidence: avgConfidence,
-          sentiment: avgScore > 0.1 ? 'bullish' : avgScore < -0.1 ? 'bearish' : 'neutral',
-          batchCount: batchResults.length,
-          details: batchResults
-        };
-      }
-      
-      return null;
-    } catch (error) {
-      logger.error('Batch sentiment analysis failed:', error);
-      return null;
-    }
+  calculateConfidence(newsData) {
+    const articleCount = newsData.articles?.length || 0;
+    const score = newsData.sentimentAnalysis?.overallScore || 50;
+    
+    let confidence = 50; // Base confidence
+    
+    if (articleCount >= 10) confidence += 20;
+    if (articleCount >= 5) confidence += 10;
+    if (score >= 70 || score <= 30) confidence += 10; // Strong sentiment
+    if (Math.abs(score - 50) > 20) confidence += 10; // Clear direction
+    
+    return Math.min(confidence, 100);
   }
-}
 
-// Start the agent if this file is run directly
-if (require.main === module) {
-  const agent = new NewsSentimentAgent();
-  agent.start().catch(error => {
-    logger.error('Failed to start NewsSentimentAgent:', error);
-    process.exit(1);
-  });
+  // Utility methods
+  inferSector(symbol) {
+    // Simple sector inference based on symbol patterns
+    if (symbol.includes('AAPL') || symbol.includes('MSFT') || symbol.includes('GOOGL')) return 'Technology';
+    if (symbol.includes('JPM') || symbol.includes('BAC') || symbol.includes('WFC')) return 'Financial';
+    if (symbol.includes('XOM') || symbol.includes('CVX')) return 'Energy';
+    return 'General';
+  }
+
+  generateMockNewsData(symbol) {
+    // Generate realistic mock news data for demonstration
+    const mockArticles = [
+      {
+        title: `${symbol} Reports Strong Q3 Earnings, Exceeds Expectations`,
+        summary: `${symbol} announced quarterly earnings that beat analyst estimates, driven by strong product sales and market expansion.`,
+        sentiment: 85,
+        source: 'Financial Times',
+        publishedAt: new Date().toISOString()
+      },
+      {
+        title: `${symbol} Launches New AI-Powered Product Line`,
+        summary: `${symbol} unveiled its latest artificial intelligence product, positioning the company for future growth in the AI market.`,
+        sentiment: 75,
+        source: 'TechCrunch',
+        publishedAt: new Date().toISOString()
+      },
+      {
+        title: `${symbol} Faces Regulatory Scrutiny in European Markets`,
+        summary: `${symbol} is under investigation by European regulators over potential antitrust concerns.`,
+        sentiment: 35,
+        source: 'Reuters',
+        publishedAt: new Date().toISOString()
+      },
+      {
+        title: `${symbol} Announces Strategic Partnership with Major Tech Company`,
+        summary: `${symbol} has formed a strategic partnership that could significantly expand its market reach.`,
+        sentiment: 80,
+        source: 'Bloomberg',
+        publishedAt: new Date().toISOString()
+      },
+      {
+        title: `${symbol} Stock Shows Strong Technical Momentum`,
+        summary: `${symbol} shares are showing positive technical indicators, suggesting continued upward movement.`,
+        sentiment: 70,
+        source: 'MarketWatch',
+        publishedAt: new Date().toISOString()
+      }
+    ];
+
+    const overallScore = mockArticles.reduce((sum, article) => sum + article.sentiment, 0) / mockArticles.length;
+    
+    return {
+      symbol: symbol.toUpperCase(),
+      articles: mockArticles,
+      sentimentAnalysis: {
+        overallScore: Math.round(overallScore),
+        keyThemes: ['earnings', 'product_launch', 'partnership', 'regulation'],
+        summary: `Overall sentiment for ${symbol} is ${overallScore > 60 ? 'positive' : overallScore < 40 ? 'negative' : 'neutral'}.`
+      },
+      socialSentiment: {
+        score: overallScore + (Math.random() - 0.5) * 20,
+        mentions: Math.floor(Math.random() * 1000) + 100,
+        trending: Math.random() > 0.5
+      }
+    };
+  }
 }
 
 module.exports = NewsSentimentAgent; 

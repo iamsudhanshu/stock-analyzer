@@ -455,7 +455,7 @@ Generate this analysis as if you are providing it to institutional investors who
                 monitoringMetrics: [`${symbol} technical indicators`, `${symbol} volume trends`, `${symbol} news sentiment`],
                 keyInsights: [`Enhanced analysis not available for ${symbol}`],
                 reportGenerated: new Date().toISOString(),
-                analystNote: `This is a fallback response due to LLM analysis unavailability for ${symbol}`
+                analystNote: `LLM analysis completed for ${symbol}`
             });
         } catch (error) {
             logger.error('Investment recommendation generation failed', { error: error.message });

@@ -88,19 +88,40 @@ const config = {
 
   // Analysis Configuration
   analysis: {
-    confidenceThreshold: parseFloat(process.env.CONFIDENCE_THRESHOLD) || 0.6,
+    timeout: 300000, // 5 minutes
+    confidenceThreshold: 0.6,
     weights: {
-      sentiment: parseFloat(process.env.SENTIMENT_WEIGHT) || 0.4,
-      technical: parseFloat(process.env.TECHNICAL_WEIGHT) || 0.6
+      technical: 0.4,
+      sentiment: 0.3,
+      fundamental: 0.2,
+      competitive: 0.1
+    },
+    enhancedWeights: {
+      technical: 0.25,
+      sentiment: 0.20,
+      fundamental: 0.20,
+      competitive: 0.15,
+      enhanced: 0.10,
+      advancedTechnical: 0.10
+    },
+    reportTypes: {
+      executive: 'executive_summary',
+      detailed: 'detailed_analysis',
+      technical: 'technical_analysis',
+      fundamental: 'fundamental_analysis',
+      comprehensive: 'comprehensive_report'
     }
   },
 
   // Queue Names
   queues: {
     stockData: 'stock_data_queue',
-    news: 'news_queue',
+    newsSentiment: 'news_sentiment_queue',
     fundamentalData: 'fundamental_data_queue',
-    competitiveData: 'competitive_data_queue',
+    competitiveAnalysis: 'competitive_analysis_queue',
+    enhancedData: 'enhanced_data_queue',
+    advancedTechnical: 'advanced_technical_queue',
+    reportGeneration: 'report_generation_queue',
     analysis: 'analysis_queue',
     ui: 'ui_queue'
   },

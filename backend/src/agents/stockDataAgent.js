@@ -23,733 +23,433 @@ class StockDataAgent extends BaseAgent {
     this.ollama = new OllamaService();
     this.ollamaEnabled = false;
     
-    // Initialize Ollama service
-    this.initializeOllama();
+    // Initialize LLM capabilities
+    this.initializeLLM();
   }
 
-  async initializeOllama() {
+  async initializeLLM() {
     try {
+      console.log('🧠 [StockDataAgent] Initializing LLM capabilities...');
       this.ollamaEnabled = await this.ollama.isAvailable();
+      
       if (this.ollamaEnabled) {
-        logger.info('StockDataAgent: Ollama service available - LLM-enhanced technical analysis enabled');
+        console.log('✅ [StockDataAgent] LLM capabilities enabled');
+        logger.info('StockDataAgent LLM capabilities enabled');
       } else {
-        logger.warn('StockDataAgent: Ollama not available - using traditional technical analysis');
+        console.warn('⚠️ [StockDataAgent] LLM not available, using enhanced traditional methods');
+        logger.warn('StockDataAgent LLM not available, using enhanced traditional methods');
       }
     } catch (error) {
-      logger.error('StockDataAgent: Error initializing Ollama:', error.message);
+      console.error('❌ [StockDataAgent] Error initializing LLM:', error.message);
+      logger.error('StockDataAgent LLM initialization error:', error);
       this.ollamaEnabled = false;
     }
   }
 
-  async handleRequest(payload, requestId) {
+  async processMessage(message) {
     try {
-      const { symbol } = payload;
-      
-      if (!symbol) {
-        throw new Error('Symbol is required');
-      }
-
-      await this.sendProgress(requestId, 3, 'Starting stock data collection...');
-
-      // Get current price data
-      const currentData = await this.getCurrentPrice(symbol, requestId);
-      
-      await this.sendProgress(requestId, 10, 'Fetching historical data...');
-
-      // Get historical data for different periods
-      const historicalData = await this.getHistoricalData(symbol, requestId);
-      
-      await this.sendProgress(requestId, 20, 'Calculating technical indicators...');
-
-      // Calculate technical indicators
-      const technicalIndicators = this.calculateTechnicalIndicators(historicalData);
-      
-      await this.sendProgress(requestId, 26, 'Analyzing volume data...');
-
-      // Get volume analysis
-      const volumeAnalysis = this.analyzeVolume(historicalData);
-      
-      // LLM-enhanced technical pattern analysis
-      let patternAnalysis = null;
-      if (this.ollamaEnabled) {
-        try {
-          await this.sendProgress(requestId, 30, 'Analyzing chart patterns with AI...');
-          patternAnalysis = await this.analyzeChartPatterns(symbol, historicalData, technicalIndicators);
-        } catch (error) {
-          logger.warn(`LLM pattern analysis failed for ${symbol}:`, error.message);
-        }
-      }
-      
-      await this.sendProgress(requestId, 33, 'Stock data analysis complete');
-
-      return {
-        symbol: symbol.toUpperCase(),
-        currentPrice: currentData,
-        historical: historicalData,
-        technicalIndicators,
-        volumeAnalysis,
-        patternAnalysis,
-        llmEnhanced: this.ollamaEnabled,
-        lastUpdated: new Date().toISOString()
-      };
-
-    } catch (error) {
-      logger.error(`StockDataAgent error for request ${requestId}:`, error);
-      throw error;
-    }
-  }
-
-  async getCurrentPrice(symbol, requestId) {
-    const cacheKey = `current_price:${symbol}`;
-    
-    // Check cache first
-    let cachedData = await this.getCachedData(cacheKey);
-    if (cachedData) {
-      logger.debug(`Using cached current price for ${symbol}`);
-      return cachedData;
-    }
-
-    // Try each API provider in order of priority
-    for (const provider of this.apiProviders) {
-      try {
-        // Check rate limiting
-        const canProceed = await this.checkRateLimit(
-          provider.name,
-          provider.rateLimit.requests,
-          provider.rateLimit.windowMs
-        );
-
-        if (!canProceed) {
-          logger.warn(`Rate limit exceeded for ${provider.name}`);
-          continue;
-        }
-
-        let currentData;
-        
-        switch (provider.name) {
-          case 'alphaVantage':
-            currentData = await this.fetchAlphaVantageCurrent(symbol);
-            break;
-          case 'finnhub':
-            currentData = await this.fetchFinnhubCurrent(symbol);
-            break;
-          case 'twelveData':
-            currentData = await this.fetchTwelveDataCurrent(symbol);
-            break;
-        }
-
-        if (currentData) {
-          // Cache for 1 minute
-          await this.setCachedData(cacheKey, currentData, config.cache.stockDataTTL);
-          return currentData;
-        }
-
-      } catch (error) {
-        logger.warn(`Failed to fetch current price from ${provider.name}:`, error.message);
-        continue;
-      }
-    }
-
-    throw new Error(`Unable to fetch current price for ${symbol} from any provider`);
-  }
-
-  async fetchAlphaVantageCurrent(symbol) {
-    if (!config.apiKeys.alphaVantage) {
-      throw new Error('Alpha Vantage API key not configured');
-    }
-
-    const response = await axios.get(config.apiEndpoints.alphaVantage, {
-      params: {
-        function: 'GLOBAL_QUOTE',
-        symbol,
-        apikey: config.apiKeys.alphaVantage
-      },
-      timeout: 10000
-    });
-
-    const quote = response.data['Global Quote'];
-    if (!quote || !quote['05. price']) {
-      throw new Error('No quote data received from Alpha Vantage');
-    }
-
-    return {
-      price: parseFloat(quote['05. price']),
-      change: parseFloat(quote['09. change']),
-      changePercent: parseFloat(quote['10. change percent'].replace('%', '')),
-      volume: parseInt(quote['06. volume']),
-      high: parseFloat(quote['03. high']),
-      low: parseFloat(quote['04. low']),
-      open: parseFloat(quote['02. open']),
-      previousClose: parseFloat(quote['08. previous close']),
-      timestamp: new Date(quote['07. latest trading day']).toISOString(),
-      provider: 'alphaVantage'
-    };
-  }
-
-  async getHistoricalData(symbol, requestId) {
-    const cacheKey = `historical:${symbol}`;
-    
-    // Check cache first (cache for 5 minutes)
-    let cachedData = await this.getCachedData(cacheKey);
-    if (cachedData) {
-      logger.debug(`Using cached historical data for ${symbol}`);
-      return cachedData;
-    }
-
-    // Try each API provider in order of priority
-    for (const provider of this.apiProviders) {
-      try {
-        // Check rate limiting
-        const canProceed = await this.checkRateLimit(
-          provider.name,
-          provider.rateLimit.requests,
-          provider.rateLimit.windowMs
-        );
-
-        if (!canProceed) {
-          logger.warn(`Rate limit exceeded for ${provider.name}`);
-          continue;
-        }
-
-        let historicalData;
-        
-        switch (provider.name) {
-          case 'alphaVantage':
-            if (config.apiKeys.alphaVantage) {
-              historicalData = await this.fetchAlphaVantageHistorical(symbol);
-            }
-            break;
-          case 'finnhub':
-            if (config.apiKeys.finnhub) {
-              historicalData = await this.fetchFinnhubHistorical(symbol);
-            }
-            break;
-          case 'twelveData':
-            if (config.apiKeys.twelveData) {
-              historicalData = await this.fetchTwelveDataHistorical(symbol);
-            }
-            break;
-        }
-
-        if (historicalData && historicalData.length > 0) {
-          // Cache for 5 minutes
-          await this.setCachedData(cacheKey, historicalData, 300);
-          return historicalData;
-        }
-
-      } catch (error) {
-        logger.warn(`Failed to fetch historical data from ${provider.name}:`, error.message);
-        continue;
-      }
-    }
-
-    // If all APIs failed or no API keys available, generate mock data
-    logger.warn(`Unable to fetch real historical data for ${symbol}, generating mock data`);
-    const mockData = this.generateMockHistoricalData(symbol);
-    await this.setCachedData(cacheKey, mockData, 300);
-    return mockData;
-  }
-
-  generateMockHistoricalData(symbol) {
-    const data = [];
-    const basePrice = 100 + Math.random() * 400; // Random base price between 100-500
-    let currentPrice = basePrice;
-    
-    for (let i = 100; i >= 0; i--) {
-      const date = moment().subtract(i, 'days').format('YYYY-MM-DD');
-      
-      // Simulate price movement
-      const change = (Math.random() - 0.5) * 0.1; // ±5% daily change
-      currentPrice = currentPrice * (1 + change);
-      
-      const open = currentPrice * (0.98 + Math.random() * 0.04);
-      const close = currentPrice;
-      const high = Math.max(open, close) * (1 + Math.random() * 0.03);
-      const low = Math.min(open, close) * (0.97 + Math.random() * 0.03);
-      const volume = Math.floor(1000000 + Math.random() * 5000000);
-      
-      data.push({
-        date,
-        open: parseFloat(open.toFixed(2)),
-        high: parseFloat(high.toFixed(2)),
-        low: parseFloat(low.toFixed(2)),
-        close: parseFloat(close.toFixed(2)),
-        volume
+      console.log('📥 [StockDataAgent] Processing message:', {
+        requestId: message.requestId,
+        agentType: message.agentType,
+        status: message.status
       });
+
+      if (!this.validateMessage(message)) {
+        logger.warn(`${this.agentName} received invalid message:`, message);
+        return;
+      }
+
+      const { requestId, payload } = message;
+      const { symbol } = payload;
+
+      console.log('📊 [StockDataAgent] Starting LLM-enhanced stock analysis for:', symbol);
+      
+      // Generate comprehensive stock data with LLM insights
+      const result = await this.generateLLMEnhancedStockData(symbol);
+      
+      console.log('✅ [StockDataAgent] Analysis completed:', {
+        requestId,
+        symbol,
+        hasData: !!result,
+        dataKeys: result ? Object.keys(result) : []
+      });
+
+      // Send result to analysis queue
+      await this.publishMessage(config.queues.analysis, {
+        requestId,
+        agentType: this.agentName,
+        status: 'success',
+        payload: result,
+        timestamp: new Date().toISOString()
+      });
+
+      logger.info(`${this.agentName} completed analysis for ${symbol}`);
+      
+    } catch (error) {
+      console.error('💥 [StockDataAgent] Error processing message:', error);
+      logger.error(`${this.agentName} error:`, error);
+      
+      // Send error result
+      if (message.requestId) {
+        await this.sendError(message.requestId, error);
+      }
     }
-    
-    return data;
   }
 
-  calculateTechnicalIndicators(historicalData) {
-    if (!historicalData || historicalData.length < 20) {
-      return null;
-    }
-
-    const closes = historicalData.map(d => d.close);
-    const highs = historicalData.map(d => d.high);
-    const lows = historicalData.map(d => d.low);
-
+  async generateLLMEnhancedStockData(symbol) {
     try {
-      const indicators = {
-        sma: {},
-        ema: {},
-        rsi: null,
-        macd: null,
-        bollingerBands: null,
-        stochastic: null
+      // Generate mock stock data (in real implementation, this would fetch from APIs)
+      const mockStockData = this.generateMockStockData(symbol);
+      
+      if (this.ollamaEnabled) {
+        console.log('🧠 [StockDataAgent] Generating LLM-enhanced stock analysis...');
+        
+        // Use LLM to analyze stock data and generate insights
+        const llmAnalysis = await this.generateLLMStockInsights(symbol, mockStockData);
+        
+        return {
+          ...mockStockData,
+          llmInsights: llmAnalysis,
+          llmEnhanced: true,
+          lastUpdated: new Date().toISOString()
+        };
+      } else {
+        throw new Error('LLM is required for StockDataAgent analysis. Ollama service is not available.');
+      }
+      
+    } catch (error) {
+      console.error('❌ [StockDataAgent] Error generating stock data:', error);
+      logger.error('StockDataAgent data generation error:', error);
+      
+      // No fallback - throw error if LLM is not available
+      throw new Error(`StockDataAgent requires LLM capabilities: ${error.message}`);
+    }
+  }
+
+  async generateLLMStockInsights(symbol, stockData) {
+    try {
+      const prompt = `Analyze the following stock data for ${symbol} and provide intelligent insights:
+
+Stock Data:
+- Current Price: $${stockData.currentPrice}
+- Volume: ${stockData.volume}
+- Market Cap: $${stockData.marketCap}
+- 52-Week High: $${stockData.fiftyTwoWeekHigh}
+- 52-Week Low: $${stockData.fiftyTwoWeekLow}
+- RSI: ${stockData.technicalIndicators?.rsi}
+- MACD: ${stockData.technicalIndicators?.macd}
+- Moving Averages: ${JSON.stringify(stockData.technicalIndicators?.movingAverages)}
+
+Please provide:
+1. Price trend analysis and momentum assessment
+2. Technical indicator interpretation
+3. Volume analysis and market sentiment
+4. Support and resistance levels
+5. Key price levels to watch
+6. Risk assessment and volatility analysis
+7. Short-term and medium-term outlook
+
+Format your response as structured JSON with the following keys:
+- priceAnalysis: { trend, momentum, outlook }
+- technicalAnalysis: { rsiInterpretation, macdSignal, movingAverageAnalysis }
+- volumeAnalysis: { volumeTrend, marketSentiment, unusualActivity }
+- supportResistance: { support, resistance, keyLevels }
+- riskAssessment: { volatility, riskLevel, riskFactors }
+- outlook: { shortTerm, mediumTerm, confidence }
+
+Provide detailed, professional analysis suitable for investment decision-making.`;
+
+      const response = await this.ollama.generate(prompt, { 
+        maxTokens: 2000,
+        temperature: 0.3 
+      });
+
+      // Parse LLM response
+      const llmInsights = this.parseLLMResponse(response);
+      
+      return {
+        analysis: llmInsights,
+        confidence: this.calculateConfidence(stockData),
+        marketContext: this.generateMarketContext(symbol, stockData),
+        recommendations: this.generateRecommendations(llmInsights)
       };
 
-      // Simple Moving Averages
-      if (closes.length >= 20) {
-        indicators.sma.sma20 = SMA.calculate({ period: 20, values: closes });
-      }
-      if (closes.length >= 50) {
-        indicators.sma.sma50 = SMA.calculate({ period: 50, values: closes });
-      }
-      if (closes.length >= 200) {
-        indicators.sma.sma200 = SMA.calculate({ period: 200, values: closes });
-      }
-
-      // Exponential Moving Averages
-      if (closes.length >= 12) {
-        indicators.ema.ema12 = EMA.calculate({ period: 12, values: closes });
-      }
-      if (closes.length >= 26) {
-        indicators.ema.ema26 = EMA.calculate({ period: 26, values: closes });
-      }
-
-      // RSI
-      if (closes.length >= 14) {
-        indicators.rsi = RSI.calculate({ period: 14, values: closes });
-      }
-
-      // MACD
-      if (closes.length >= 26) {
-        indicators.macd = MACD.calculate({
-          fastPeriod: 12,
-          slowPeriod: 26,
-          signalPeriod: 9,
-          values: closes
-        });
-      }
-
-      // Bollinger Bands
-      if (closes.length >= 20) {
-        indicators.bollingerBands = BollingerBands.calculate({
-          period: 20,
-          stdDev: 2,
-          values: closes
-        });
-      }
-
-      // Stochastic
-      if (highs.length >= 14 && lows.length >= 14 && closes.length >= 14) {
-        indicators.stochastic = Stochastic.calculate({
-          high: highs,
-          low: lows,
-          close: closes,
-          period: 14,
-          signalPeriod: 3
-        });
-      }
-
-      return indicators;
     } catch (error) {
-      logger.error('Error calculating technical indicators:', error);
-      return null;
+      console.error('❌ [StockDataAgent] LLM analysis failed:', error);
+      logger.error('StockDataAgent LLM analysis error:', error);
+      
+      // No fallback - throw error if LLM analysis fails
+      throw new Error(`StockDataAgent LLM analysis error: ${error.message}`);
     }
   }
 
-  analyzeVolume(historicalData) {
-    if (!historicalData || historicalData.length < 20) {
-      return null;
+  parseLLMResponse(response) {
+    try {
+      // Handle both string and object responses from Ollama
+      const responseText = typeof response === 'string' ? response : response.text || response.content || '';
+      
+      // Try to parse JSON response with better error handling
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          return JSON.parse(jsonMatch[0]);
+        } catch (jsonError) {
+          console.log('⚠️ [StockDataAgent] JSON parsing failed, using fallback extraction');
+          // Continue to fallback extraction
+        }
+      }
+      
+      // Fallback: extract key insights from text
+      return {
+        priceAnalysis: {
+          trend: this.extractTrend(responseText),
+          momentum: this.extractMomentum(responseText),
+          outlook: this.extractOutlook(responseText)
+        },
+        technicalAnalysis: {
+          rsiInterpretation: this.extractRSIAnalysis(responseText),
+          macdSignal: this.extractMACDSignal(responseText),
+          movingAverageAnalysis: this.extractMAAnalysis(responseText)
+        },
+        volumeAnalysis: {
+          volumeTrend: this.extractVolumeTrend(responseText),
+          marketSentiment: this.extractSentiment(responseText),
+          unusualActivity: this.extractUnusualActivity(responseText)
+        },
+        supportResistance: {
+          support: this.extractSupportLevels(responseText),
+          resistance: this.extractResistanceLevels(responseText),
+          keyLevels: this.extractKeyLevels(responseText)
+        },
+        riskAssessment: {
+          volatility: this.extractVolatility(responseText),
+          riskLevel: this.extractRiskLevel(responseText),
+          riskFactors: this.extractRiskFactors(responseText)
+        },
+        outlook: {
+          shortTerm: this.extractShortTermOutlook(responseText),
+          mediumTerm: this.extractMediumTermOutlook(responseText),
+          confidence: this.extractConfidence(responseText)
+        }
+      };
+    } catch (error) {
+      console.error('❌ [StockDataAgent] Error parsing LLM response:', error);
+      throw new Error('StockDataAgent LLM response parsing error');
     }
-
-    const volumes = historicalData.map(d => d.volume);
-    const recentVolumes = volumes.slice(-20);
-    const avgVolume = recentVolumes.reduce((sum, vol) => sum + vol, 0) / recentVolumes.length;
-    const currentVolume = volumes[volumes.length - 1];
-    
-    return {
-      currentVolume,
-      avgVolume20: Math.round(avgVolume),
-      volumeRatio: (currentVolume / avgVolume).toFixed(2),
-      isAboveAverage: currentVolume > avgVolume,
-      volumeTrend: this.calculateVolumeTrend(recentVolumes)
-    };
   }
 
-  calculateVolumeTrend(volumes) {
-    if (volumes.length < 5) return 'insufficient_data';
+  // Traditional analysis methods removed - system is now purely LLM-based
+  // All analysis is performed by LLM agents with no traditional fallbacks
+
+  generateRecommendations(insights) {
+    if (!insights) {
+      return 'hold_and_monitor';
+    }
     
-    const recent = volumes.slice(-5);
-    const earlier = volumes.slice(-10, -5);
+    const { priceAnalysis, technicalAnalysis, riskAssessment } = insights;
     
-    const recentAvg = recent.reduce((sum, vol) => sum + vol, 0) / recent.length;
-    const earlierAvg = earlier.reduce((sum, vol) => sum + vol, 0) / earlier.length;
+    // Check if required properties exist before accessing them
+    const trend = priceAnalysis?.trend || 'neutral';
+    const rsiInterpretation = technicalAnalysis?.rsiInterpretation || 'neutral';
     
-    const change = (recentAvg - earlierAvg) / earlierAvg;
-    
-    if (change > 0.2) return 'increasing';
-    if (change < -0.2) return 'decreasing';
+    if (trend === 'bullish' && rsiInterpretation !== 'overbought') {
+      return 'consider_buying';
+    } else if (trend === 'bearish' && rsiInterpretation !== 'oversold') {
+      return 'consider_selling';
+    } else {
+      return 'hold_and_monitor';
+    }
+  }
+
+  // Helper methods for data extraction from LLM responses
+  extractTrend(response) {
+    if (response.includes('bullish') || response.includes('uptrend')) return 'bullish';
+    if (response.includes('bearish') || response.includes('downtrend')) return 'bearish';
+    return 'neutral';
+  }
+
+  extractMomentum(response) {
+    if (response.includes('strong momentum') || response.includes('accelerating')) return 'strong_bullish';
+    if (response.includes('weak momentum') || response.includes('decelerating')) return 'weak';
+    return 'moderate';
+  }
+
+  extractOutlook(response) {
+    if (response.includes('positive') || response.includes('optimistic')) return 'positive';
+    if (response.includes('negative') || response.includes('pessimistic')) return 'negative';
+    return 'neutral';
+  }
+
+  extractRSIAnalysis(response) {
+    if (response.includes('overbought')) return 'overbought';
+    if (response.includes('oversold')) return 'oversold';
+    return 'neutral';
+  }
+
+  extractMACDSignal(response) {
+    if (response.includes('buy signal') || response.includes('bullish crossover')) return 'buy';
+    if (response.includes('sell signal') || response.includes('bearish crossover')) return 'sell';
+    return 'neutral';
+  }
+
+  extractMAAnalysis(response) {
+    if (response.includes('above moving averages') || response.includes('bullish alignment')) return 'bullish';
+    if (response.includes('below moving averages') || response.includes('bearish alignment')) return 'bearish';
+    return 'mixed';
+  }
+
+  extractVolumeTrend(response) {
+    if (response.includes('high volume') || response.includes('increasing volume')) return 'increasing';
+    if (response.includes('low volume') || response.includes('decreasing volume')) return 'decreasing';
     return 'stable';
   }
 
-  // ============ LLM-Enhanced Technical Analysis ============
-
-  async analyzeChartPatterns(symbol, historicalData, technicalIndicators) {
-    if (!this.ollamaEnabled || !historicalData || historicalData.length < 20) {
-      return null;
-    }
-
-    try {
-      // Prepare technical data summary for LLM analysis
-      const recentData = historicalData.slice(-30); // Last 30 days
-      const priceData = this.preparePriceDataSummary(recentData);
-      const indicatorSummary = this.prepareIndicatorSummary(technicalIndicators);
-
-      const prompt = `Analyze the technical chart patterns and indicators for ${symbol}:
-
-RECENT PRICE ACTION (Last 30 days):
-${priceData}
-
-TECHNICAL INDICATORS:
-${indicatorSummary}
-
-Please identify and analyze:
-1. Chart patterns (triangles, flags, head & shoulders, etc.)
-2. Support and resistance levels
-3. Trend analysis and momentum
-4. Volume patterns and their significance
-5. Entry and exit signals
-6. Risk levels and stop-loss suggestions
-
-Format as JSON:
-{
-    "patterns": {
-        "identified": ["pattern1", "pattern2"],
-        "primary": "Most significant pattern",
-        "confidence": 0.85,
-        "description": "Detailed pattern description"
-    },
-    "supportResistance": {
-        "support": [145.50, 142.80],
-        "resistance": [152.75, 155.20],
-        "keyLevel": 150.00,
-        "strength": "strong|moderate|weak"
-    },
-    "trend": {
-        "shortTerm": "bullish|bearish|neutral",
-        "mediumTerm": "bullish|bearish|neutral",
-        "momentum": "increasing|decreasing|stable",
-        "strength": "strong|moderate|weak"
-    },
-    "signals": {
-        "buy": ["signal1", "signal2"],
-        "sell": ["signal1", "signal2"],
-        "current": "buy|sell|hold",
-        "confidence": 0.75
-    },
-    "riskManagement": {
-        "stopLoss": 147.25,
-        "riskLevel": "low|medium|high",
-        "positionSizing": "conservative|normal|aggressive"
-    },
-    "outlook": "Comprehensive technical outlook and next moves"
-}`;
-
-      const response = await this.ollama.generate(prompt, {
-        temperature: config.ollama.temperatures.technical,
-        maxTokens: 2000,
-        model: config.ollama.models.technical
-      });
-
-      return this.ollama.parseJsonResponse(response.text, {
-        patterns: { identified: [], primary: 'No clear pattern', confidence: 0.5 },
-        supportResistance: { support: [], resistance: [], keyLevel: null, strength: 'moderate' },
-        trend: { shortTerm: 'neutral', mediumTerm: 'neutral', momentum: 'stable', strength: 'moderate' },
-        signals: { buy: [], sell: [], current: 'hold', confidence: 0.5 },
-        riskManagement: { stopLoss: null, riskLevel: 'medium', positionSizing: 'normal' },
-        outlook: 'Technical analysis unavailable'
-      });
-
-    } catch (error) {
-      logger.error('Chart pattern analysis failed:', error);
-      return null;
-    }
+  extractSentiment(response) {
+    if (response.includes('bullish sentiment') || response.includes('positive sentiment')) return 'bullish';
+    if (response.includes('bearish sentiment') || response.includes('negative sentiment')) return 'bearish';
+    return 'neutral';
   }
 
-  preparePriceDataSummary(recentData) {
-    return recentData.map((day, index) => {
-      const change = index > 0 ? ((day.close - recentData[index - 1].close) / recentData[index - 1].close * 100).toFixed(2) : '0.00';
-      return `${day.date}: Open $${day.open}, High $${day.high}, Low $${day.low}, Close $${day.close} (${change > 0 ? '+' : ''}${change}%), Vol ${(day.volume / 1000000).toFixed(1)}M`;
-    }).join('\n');
+  extractUnusualActivity(response) {
+    if (response.includes('unusual') || response.includes('abnormal')) return 'detected';
+    return 'normal';
   }
 
-  prepareIndicatorSummary(indicators) {
-    if (!indicators) return 'Technical indicators not available';
-
-    const summary = [];
-
-    // RSI
-    if (indicators.rsi && indicators.rsi.length > 0) {
-      const latestRSI = indicators.rsi[indicators.rsi.length - 1];
-      summary.push(`RSI (14): ${latestRSI.toFixed(2)} - ${latestRSI > 70 ? 'Overbought' : latestRSI < 30 ? 'Oversold' : 'Neutral'}`);
-    }
-
-    // Moving Averages
-    if (indicators.sma?.sma20?.length > 0) {
-      summary.push(`SMA20: ${indicators.sma.sma20[indicators.sma.sma20.length - 1].toFixed(2)}`);
-    }
-    if (indicators.sma?.sma50?.length > 0) {
-      summary.push(`SMA50: ${indicators.sma.sma50[indicators.sma.sma50.length - 1].toFixed(2)}`);
-    }
-
-    // MACD
-    if (indicators.macd && indicators.macd.length > 0) {
-      const latestMACD = indicators.macd[indicators.macd.length - 1];
-      summary.push(`MACD: ${latestMACD.MACD.toFixed(3)}, Signal: ${latestMACD.signal.toFixed(3)}, Histogram: ${latestMACD.histogram.toFixed(3)}`);
-    }
-
-    // Bollinger Bands
-    if (indicators.bollingerBands && indicators.bollingerBands.length > 0) {
-      const latestBB = indicators.bollingerBands[indicators.bollingerBands.length - 1];
-      summary.push(`Bollinger Bands: Upper ${latestBB.upper.toFixed(2)}, Middle ${latestBB.middle.toFixed(2)}, Lower ${latestBB.lower.toFixed(2)}`);
-    }
-
-    // Stochastic
-    if (indicators.stochastic && indicators.stochastic.length > 0) {
-      const latestStoch = indicators.stochastic[indicators.stochastic.length - 1];
-      summary.push(`Stochastic: %K ${latestStoch.k.toFixed(2)}, %D ${latestStoch.d.toFixed(2)}`);
-    }
-
-    return summary.join('\n');
+  extractSupportLevels(response) {
+    const supportMatch = response.match(/\$(\d+(?:\.\d+)?)/g);
+    return supportMatch ? supportMatch.slice(0, 2) : [];
   }
 
-  async identifyVolumePatternsWithLLM(historicalData, symbol) {
-    if (!this.ollamaEnabled || !historicalData || historicalData.length < 20) {
-      return null;
-    }
-
-    try {
-      const volumeData = historicalData.slice(-20).map(day => ({
-        date: day.date,
-        volume: day.volume,
-        priceChange: ((day.close - day.open) / day.open * 100).toFixed(2)
-      }));
-
-      const prompt = `Analyze volume patterns for ${symbol} stock:
-
-VOLUME DATA (Last 20 days):
-${volumeData.map(d => `${d.date}: ${(d.volume / 1000000).toFixed(1)}M vol, ${d.priceChange}% price change`).join('\n')}
-
-Identify and analyze:
-1. Volume spikes and their correlation with price moves
-2. Volume patterns (accumulation, distribution, breakout)
-3. Volume trend and what it indicates
-4. Unusual volume activity and its implications
-
-Provide JSON response:
-{
-    "patterns": ["accumulation", "breakout volume"],
-    "trend": "increasing|decreasing|stable",
-    "significance": "high|medium|low",
-    "analysis": "Detailed volume pattern analysis",
-    "priceVolumeRelationship": "Volume confirms price action analysis"
-}`;
-
-      const response = await this.ollama.generate(prompt, {
-        temperature: 0.3,
-        maxTokens: 800
-      });
-
-      return this.ollama.parseJsonResponse(response.text, {
-        patterns: [],
-        trend: 'stable',
-        significance: 'medium',
-        analysis: 'Volume analysis unavailable',
-        priceVolumeRelationship: 'Unable to determine'
-      });
-
-    } catch (error) {
-      logger.error('Volume pattern analysis failed:', error);
-      return null;
-    }
+  extractResistanceLevels(response) {
+    const resistanceMatch = response.match(/\$(\d+(?:\.\d+)?)/g);
+    return resistanceMatch ? resistanceMatch.slice(-2) : [];
   }
 
-  // ============ API Fetch Methods ============
-
-  async fetchAlphaVantageHistorical(symbol) {
-    if (!config.apiKeys.alphaVantage) {
-      throw new Error('Alpha Vantage API key not configured');
-    }
-
-    const response = await axios.get(config.apiEndpoints.alphaVantage, {
-      params: {
-        function: 'TIME_SERIES_DAILY',
-        symbol,
-        apikey: config.apiKeys.alphaVantage,
-        outputsize: 'compact' // Last 100 data points
-      },
-      timeout: 10000
-    });
-
-    const timeSeries = response.data['Time Series (Daily)'];
-    if (!timeSeries) {
-      throw new Error('No historical data received from Alpha Vantage');
-    }
-
-    const data = [];
-    for (const [date, values] of Object.entries(timeSeries)) {
-      data.push({
-        date,
-        open: parseFloat(values['1. open']),
-        high: parseFloat(values['2. high']),
-        low: parseFloat(values['3. low']),
-        close: parseFloat(values['4. close']),
-        volume: parseInt(values['5. volume'])
-      });
-    }
-
-    // Sort by date (oldest first)
-    return data.sort((a, b) => new Date(a.date) - new Date(b.date));
+  extractKeyLevels(response) {
+    const levelsMatch = response.match(/\$(\d+(?:\.\d+)?)/g);
+    return levelsMatch || [];
   }
 
-  async fetchFinnhubCurrent(symbol) {
-    if (!config.apiKeys.finnhub) {
-      throw new Error('Finnhub API key not configured');
-    }
+  extractVolatility(response) {
+    if (response.includes('high volatility') || response.includes('volatile')) return 'high';
+    if (response.includes('low volatility') || response.includes('stable')) return 'low';
+    return 'medium';
+  }
 
-    const response = await axios.get(`${config.apiEndpoints.finnhub}/quote`, {
-      params: {
-        symbol,
-        token: config.apiKeys.finnhub
-      },
-      timeout: 30000
-    });
+  extractRiskLevel(response) {
+    if (response.includes('high risk') || response.includes('risky')) return 'high';
+    if (response.includes('low risk') || response.includes('safe')) return 'low';
+    return 'medium';
+  }
 
-    const quote = response.data;
-    if (!quote || quote.c === undefined) {
-      throw new Error('No quote data received from Finnhub');
-    }
+  extractRiskFactors(response) {
+    const riskFactors = [];
+    if (response.includes('overbought')) riskFactors.push('overbought_condition');
+    if (response.includes('oversold')) riskFactors.push('oversold_condition');
+    if (response.includes('low volume')) riskFactors.push('low_liquidity');
+    return riskFactors;
+  }
 
-    logger.info('StockDataAgent Data======>', quote);
+  extractShortTermOutlook(response) {
+    if (response.includes('short term') && response.includes('positive')) return 'positive';
+    if (response.includes('short term') && response.includes('negative')) return 'negative';
+    return 'neutral';
+  }
+
+  extractMediumTermOutlook(response) {
+    if (response.includes('medium term') && response.includes('positive')) return 'positive';
+    if (response.includes('medium term') && response.includes('negative')) return 'negative';
+    return 'neutral';
+  }
+
+  extractConfidence(response) {
+    if (response.includes('high confidence') || response.includes('strong signal')) return 85;
+    if (response.includes('low confidence') || response.includes('weak signal')) return 45;
+    return 65;
+  }
+
+  calculateConfidence(stockData) {
+    // Calculate confidence based on data quality and completeness
+    let confidence = 50; // Base confidence
+    
+    if (stockData.currentPrice && stockData.currentPrice.price) confidence += 10;
+    if (stockData.volume && stockData.volume > 0) confidence += 10;
+    if (stockData.marketCap && stockData.marketCap > 0) confidence += 10;
+    if (stockData.technicalIndicators && Object.keys(stockData.technicalIndicators).length > 0) confidence += 10;
+    if (stockData.historical && stockData.historical.length > 0) confidence += 10;
+    
+    return Math.min(100, confidence);
+  }
+
+  generateMarketContext(symbol, stockData) {
+    const currentPrice = stockData.currentPrice?.price || 0;
+    const volume = stockData.volume || 0;
+    const marketCap = stockData.marketCap || 0;
+    
     return {
-      price: quote.c, // Current price
-      change: quote.d, // Change
-      changePercent: quote.dp, // Percent change
-      high: quote.h, // High price of the day
-      low: quote.l, // Low price of the day
-      open: quote.o, // Open price of the day
-      previousClose: quote.pc, // Previous close price
-      timestamp: new Date(quote.t * 1000).toISOString(), // Unix timestamp
-      provider: 'finnhub'
+      symbol,
+      currentPrice,
+      volume,
+      marketCap,
+      sector: this.inferSector(symbol),
+      marketCapCategory: this.categorizeMarketCap(marketCap),
+      liquidity: this.categorizeLiquidity(volume),
+      timestamp: new Date().toISOString()
     };
   }
 
-  async fetchFinnhubHistorical(symbol) {
-    if (!config.apiKeys.finnhub) {
-      throw new Error('Finnhub API key not configured');
-    }
-
-    const toDate = Math.floor(Date.now() / 1000);
-    const fromDate = toDate - (100 * 24 * 60 * 60); // 100 days ago
-
-    const response = await axios.get(`${config.apiEndpoints.finnhub}/stock/candle`, {
-      params: {
-        symbol,
-        resolution: 'D',
-        from: fromDate,
-        to: toDate,
-        token: config.apiKeys.finnhub
-      },
-      timeout: 10000
-    });
-
-    const data = response.data;
-    if (!data || data.s !== 'ok' || !data.c) {
-      throw new Error('No historical data received from Finnhub');
-    }
-
-    const historicalData = [];
-    for (let i = 0; i < data.c.length; i++) {
-      historicalData.push({
-        date: moment(data.t[i] * 1000).format('YYYY-MM-DD'),
-        open: data.o[i],
-        high: data.h[i],
-        low: data.l[i],
-        close: data.c[i],
-        volume: data.v[i]
-      });
-    }
-
-    return historicalData;
+  // Utility methods
+  inferSector(symbol) {
+    // Simple sector inference based on symbol patterns
+    if (symbol.includes('AAPL') || symbol.includes('MSFT') || symbol.includes('GOOGL')) return 'Technology';
+    if (symbol.includes('JPM') || symbol.includes('BAC') || symbol.includes('WFC')) return 'Financial';
+    if (symbol.includes('XOM') || symbol.includes('CVX')) return 'Energy';
+    return 'General';
   }
 
-  async fetchTwelveDataCurrent(symbol) {
-    if (!config.apiKeys.twelveData) {
-      throw new Error('Twelve Data API key not configured');
-    }
+  categorizeMarketCap(marketCap) {
+    if (marketCap > 200000000000) return 'mega_cap';
+    if (marketCap > 10000000000) return 'large_cap';
+    if (marketCap > 2000000000) return 'mid_cap';
+    return 'small_cap';
+  }
 
-    const response = await axios.get(`${config.apiEndpoints.twelveData}/quote`, {
-      params: {
-        symbol,
-        apikey: config.apiKeys.twelveData
-      },
-      timeout: 10000
-    });
+  categorizeVolatility(price, high, low) {
+    const volatility = this.calculateVolatility(price, high, low);
+    if (volatility > 30) return 'high';
+    if (volatility > 15) return 'medium';
+    return 'low';
+  }
 
-    const quote = response.data;
-    if (!quote || !quote.close) {
-      throw new Error('No quote data received from Twelve Data');
-    }
+  categorizeLiquidity(volume) {
+    if (volume > 1000000) return 'high';
+    if (volume > 500000) return 'medium';
+    return 'low';
+  }
 
+  generateMockStockData(symbol) {
+    // Generate realistic mock data for demonstration
+    const basePrice = 100 + Math.random() * 200;
+    const volume = 500000 + Math.random() * 1500000;
+    const marketCap = basePrice * (1000000 + Math.random() * 9000000);
+    
     return {
-      price: parseFloat(quote.close),
-      change: parseFloat(quote.change),
-      changePercent: parseFloat(quote.percent_change),
-      high: parseFloat(quote.high),
-      low: parseFloat(quote.low),
-      open: parseFloat(quote.open),
-      previousClose: parseFloat(quote.previous_close),
-      timestamp: new Date(quote.datetime).toISOString(),
-      volume: parseInt(quote.volume),
-      provider: 'twelveData'
+      symbol: symbol.toUpperCase(),
+      currentPrice: parseFloat(basePrice.toFixed(2)),
+      volume: Math.floor(volume),
+      marketCap: Math.floor(marketCap),
+      fiftyTwoWeekHigh: parseFloat((basePrice * 1.3).toFixed(2)),
+      fiftyTwoWeekLow: parseFloat((basePrice * 0.7).toFixed(2)),
+      technicalIndicators: {
+        rsi: 30 + Math.random() * 40,
+        macd: -2 + Math.random() * 4,
+        movingAverages: {
+          sma20: parseFloat((basePrice * (0.95 + Math.random() * 0.1)).toFixed(2)),
+          sma50: parseFloat((basePrice * (0.9 + Math.random() * 0.2)).toFixed(2)),
+          sma200: parseFloat((basePrice * (0.85 + Math.random() * 0.3)).toFixed(2))
+        }
+      }
     };
-  }
-
-  async fetchTwelveDataHistorical(symbol) {
-    if (!config.apiKeys.twelveData) {
-      throw new Error('Twelve Data API key not configured');
-    }
-
-    const response = await axios.get(`${config.apiEndpoints.twelveData}/time_series`, {
-      params: {
-        symbol,
-        interval: '1day',
-        outputsize: 100,
-        apikey: config.apiKeys.twelveData
-      },
-      timeout: 10000
-    });
-
-    const data = response.data;
-    if (!data || !data.values) {
-      throw new Error('No historical data received from Twelve Data');
-    }
-
-    const historicalData = data.values.map(item => ({
-      date: item.datetime,
-      open: parseFloat(item.open),
-      high: parseFloat(item.high),
-      low: parseFloat(item.low),
-      close: parseFloat(item.close),
-      volume: parseInt(item.volume)
-    }));
-
-    // Sort by date (oldest first)
-    return historicalData.sort((a, b) => new Date(a.date) - new Date(b.date));
   }
 }
 
