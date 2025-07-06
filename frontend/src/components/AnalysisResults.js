@@ -426,17 +426,17 @@ const AnalysisResults = ({ data }) => {
             <AlertTriangle className="h-8 w-8 text-red-600 mr-4" />
             <div className="flex-grow">
               <h2 className="text-xl font-bold text-red-800 mb-1">
-                ⚠️ AI Analysis Failed - Using Fallback Traditional Analysis
+                ⚠️ AI Analysis Failed - LLM Service Required
               </h2>
               <p className="text-red-700 text-sm">
                 The advanced AI analysis could not be completed{llmFailureReason && ` due to: ${llmFailureReason}`}. 
-                This analysis uses basic mathematical models and may be less accurate. 
+                This application requires LLM capabilities and cannot provide analysis without it.
                 <span className="font-semibold"> See detailed error information below.</span>
               </p>
             </div>
             <div className="text-right">
               <span className="inline-block bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
-                Traditional Analysis
+                Analysis Failed
               </span>
             </div>
           </div>
@@ -512,9 +512,9 @@ const AnalysisResults = ({ data }) => {
                 {expandedSections.llmWarning && (
                   <div className="mt-4 space-y-3">
                     <div className="bg-amber-100 rounded-lg p-4">
-                      <h4 className="font-semibold text-amber-800 mb-2">Impact on Analysis Quality:</h4>
+                      <h4 className="font-semibold text-amber-800 mb-2">Impact:</h4>
                       <p className="text-amber-700 text-sm">
-                        {hasAnalysisWarning.impact}
+                        No analysis can be provided without LLM capabilities. All agents require AI processing to generate insights.
                       </p>
                     </div>
                     
@@ -522,7 +522,7 @@ const AnalysisResults = ({ data }) => {
                       <h4 className="font-semibold text-blue-800 mb-2">How to Fix This:</h4>
                       <ul className="text-blue-700 text-sm space-y-1">
                         <li>• Ensure Ollama is running: <code className="bg-blue-100 px-1 rounded">ollama serve</code></li>
-                        <li>• Check if the model is available: <code className="bg-blue-100 px-1 rounded">ollama pull llama4:maverick</code></li>
+                        <li>• Check if the model is available: <code className="bg-blue-100 px-1 rounded">ollama pull llama3.1:8b</code></li>
                         <li>• Verify Ollama is accessible at: <code className="bg-blue-100 px-1 rounded">http://localhost:11434</code></li>
                         <li>• Restart the backend service after fixing Ollama</li>
                         <li>• Try analyzing {symbol} again after fixing the issue</li>
@@ -530,13 +530,13 @@ const AnalysisResults = ({ data }) => {
                     </div>
                     
                     <div className="bg-gray-100 rounded-lg p-4">
-                      <h4 className="font-semibold text-gray-800 mb-2">What This Means for Your Analysis:</h4>
+                      <h4 className="font-semibold text-gray-800 mb-2">What This Means:</h4>
                       <ul className="text-gray-700 text-sm space-y-1">
-                        <li>• Recommendations may be less specific to {symbol}</li>
-                        <li>• Limited integration of recent market news</li>
-                        <li>• Generic price targets instead of contextual analysis</li>
-                        <li>• Reduced accuracy for current market conditions</li>
-                        <li>• Mathematical models used instead of AI reasoning</li>
+                        <li>• No analysis can be generated without LLM</li>
+                        <li>• All agents require AI processing capabilities</li>
+                        <li>• No fallback to traditional analysis methods</li>
+                        <li>• Real-time data requires AI interpretation</li>
+                        <li>• Advanced insights require LLM reasoning</li>
                       </ul>
                     </div>
                     

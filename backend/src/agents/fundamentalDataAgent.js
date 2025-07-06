@@ -90,35 +90,28 @@ class FundamentalDataAgent extends BaseAgent {
 
     async generateLLMEnhancedFundamentalData(symbol) {
         try {
-            let fundamentalData;
+            console.log('📊 [FundamentalDataAgent] Fetching real fundamental data from APIs');
+            const fundamentalData = await this.fetchRealFundamentalData(symbol);
             
-            if (config.analysis.useMockData) {
-                console.log('🧪 [FundamentalDataAgent] Using mock data for testing');
-                fundamentalData = this.generateMockFundamentalData(symbol);
-            } else {
-                console.log('📊 [FundamentalDataAgent] Fetching real fundamental data from APIs');
-                fundamentalData = await this.fetchRealFundamentalData(symbol);
-            }
-            
-            if (this.ollamaEnabled) {
-                console.log('🧠 [FundamentalDataAgent] Generating LLM-enhanced fundamental analysis...');
-                
-                // Use LLM to analyze fundamental data and generate insights
-                const llmAnalysis = await this.generateLLMFundamentalInsights(symbol, fundamentalData);
-                
-                // Restructure data to match expected format
-                return {
-                    symbol: fundamentalData.symbol,
-                    fundamentals: fundamentalData.fundamentals,
-                    financialMetrics: fundamentalData.fundamentals.metrics,
-                    valuation: fundamentalData.fundamentals.valuation,
-                    llmInsights: llmAnalysis,
-                    llmEnhanced: true,
-                    lastUpdated: new Date().toISOString()
-                };
-            } else {
+            if (!this.ollamaEnabled) {
                 throw new Error('LLM is required for FundamentalDataAgent analysis. Ollama service is not available.');
             }
+            
+            console.log('🧠 [FundamentalDataAgent] Generating LLM-enhanced fundamental analysis...');
+            
+            // Use LLM to analyze fundamental data and generate insights
+            const llmAnalysis = await this.generateLLMFundamentalInsights(symbol, fundamentalData);
+            
+            // Restructure data to match expected format
+            return {
+                symbol: fundamentalData.symbol,
+                fundamentals: fundamentalData.fundamentals,
+                financialMetrics: fundamentalData.fundamentals.metrics,
+                valuation: fundamentalData.fundamentals.valuation,
+                llmInsights: llmAnalysis,
+                llmEnhanced: true,
+                lastUpdated: new Date().toISOString()
+            };
             
         } catch (error) {
             console.error('❌ [FundamentalDataAgent] Error generating fundamental data:', error);
@@ -386,19 +379,45 @@ Provide detailed, professional analysis suitable for investment decision-making.
         const eps = metrics.eps || 0;
         const peRatio = metrics.peRatio || 0;
         const growthRate = metrics.revenueGrowth || 0;
+        const currentPrice = metrics.currentPrice || 0;
         
-        // Simple DCF-like calculation
-        const baseValue = eps * 15; // Conservative P/E
-        const growthAdjustment = 1 + (growthRate / 100) * 0.5;
+        // Use actual P/E ratio if available, otherwise use sector average
+        const sectorPE = this.getSectorPE(metrics.sector || 'technology');
+        const basePE = peRatio > 0 ? Math.min(peRatio, sectorPE * 1.5) : sectorPE;
         
-        return Math.round(baseValue * growthAdjustment * 100) / 100;
+        // DCF-like calculation with growth adjustment
+        const baseValue = eps * basePE;
+        const growthAdjustment = 1 + (growthRate / 100) * 0.3;
+        const discountRate = 0.1; // 10% discount rate
+        
+        const fairValue = baseValue * growthAdjustment / (1 + discountRate);
+        
+        return Math.round(fairValue * 100) / 100;
     }
 
     calculateUpside(metrics, valuation) {
-        const currentPrice = 100; // Mock current price
+        const currentPrice = metrics.currentPrice || 0;
+        if (!currentPrice || currentPrice <= 0) return 0;
+        
         const fairValue = this.calculateFairValue(metrics);
         
         return Math.round(((fairValue - currentPrice) / currentPrice) * 100);
+    }
+
+    getSectorPE(sector) {
+        const sectorPEs = {
+            'technology': 25,
+            'financial': 15,
+            'healthcare': 20,
+            'energy': 12,
+            'consumer': 18,
+            'industrial': 16,
+            'materials': 14,
+            'utilities': 18,
+            'real_estate': 20,
+            'communication': 22
+        };
+        return sectorPEs[sector.toLowerCase()] || 20;
     }
 
     determineValuationMethod(metrics) {
@@ -785,132 +804,6 @@ Provide detailed, professional analysis suitable for investment decision-making.
         return rating.toLowerCase();
     }
 
-    generateMockFundamentalData(symbol) {
-        // Generate stock-specific mock fundamental data based on symbol
-        const symbolHash = this.hashSymbol(symbol);
-        const stockType = this.getStockType(symbol);
-        
-        const metrics = this.generateStockSpecificMetrics(symbol, stockType, symbolHash.metrics);
-        const marketCap = metrics.marketCap;
-        const eps = metrics.eps;
-        const peRatio = metrics.peRatio;
-        const revenueGrowth = metrics.revenueGrowth;
-        const roe = metrics.roe;
-        const profitMargin = metrics.profitMargin;
-        const debtToEquity = metrics.debtToEquity;
-        const currentRatio = metrics.currentRatio;
-        
-        return {
-            symbol: symbol.toUpperCase(),
-            fundamentals: {
-                metrics: metrics,
-                financialHealth: {
-                    rating: this.assessFinancialHealthRating(roe, debtToEquity, currentRatio, profitMargin),
-                    score: Math.floor(50 + symbolHash.health * 50),
-                    strengths: this.generateStrengths(roe, profitMargin, debtToEquity),
-                    weaknesses: this.generateWeaknesses(roe, profitMargin, debtToEquity)
-                },
-                valuation: {
-                    rating: this.assessValuationRating(peRatio, revenueGrowth),
-                    fairValue: parseFloat((eps * (12 + symbolHash.valuation * 8)).toFixed(2)),
-                    upsidePotential: parseFloat((symbolHash.valuation * 60 - 10).toFixed(2))
-                },
-                keyHighlights: [
-                    `${symbol} shows ${revenueGrowth > 10 ? 'strong' : 'moderate'} revenue growth`,
-                    `ROE of ${roe.toFixed(1)}% indicates ${roe > 15 ? 'strong' : 'adequate'} profitability`,
-                    `P/E ratio of ${peRatio.toFixed(1)} suggests ${peRatio < 20 ? 'reasonable' : 'premium'} valuation`
-                ]
-            }
-        };
-    }
-
-    // Helper methods for stock-specific data
-    hashSymbol(symbol) {
-        let hash = 0;
-        for (let i = 0; i < symbol.length; i++) {
-            const char = symbol.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash;
-        }
-        const normalizedHash = Math.abs(hash) / 2147483647;
-        return {
-            metrics: (normalizedHash * 1000) % 1,
-            health: (normalizedHash * 2000) % 1,
-            valuation: (normalizedHash * 3000) % 1
-        };
-    }
-
-    getStockType(symbol) {
-        if (symbol.includes('AAPL') || symbol.includes('MSFT') || symbol.includes('GOOGL') || symbol.includes('TSLA')) {
-            return 'tech';
-        } else if (symbol.includes('JPM') || symbol.includes('BAC') || symbol.includes('WFC')) {
-            return 'financial';
-        } else if (symbol.includes('XOM') || symbol.includes('CVX')) {
-            return 'energy';
-        } else {
-            return 'general';
-        }
-    }
-
-    generateStockSpecificMetrics(symbol, stockType, hash) {
-        let marketCap, eps, peRatio, revenueGrowth, roe, profitMargin, debtToEquity, currentRatio;
-        
-        if (stockType === 'tech') {
-            marketCap = 200000000000 + hash * 800000000000; // $200B - $1T
-            eps = 2 + hash * 8; // $2 - $10
-            peRatio = 15 + hash * 25; // 15 - 40
-            revenueGrowth = 5 + hash * 20; // 5% - 25%
-            roe = 10 + hash * 20; // 10% - 30%
-            profitMargin = 5 + hash * 15; // 5% - 20%
-            debtToEquity = hash * 0.5; // 0 - 0.5
-            currentRatio = 1.5 + hash * 1.5; // 1.5 - 3.0
-        } else if (stockType === 'financial') {
-            marketCap = 50000000000 + hash * 300000000000; // $50B - $350B
-            eps = 1 + hash * 4; // $1 - $5
-            peRatio = 8 + hash * 12; // 8 - 20
-            revenueGrowth = -2 + hash * 12; // -2% - 10%
-            roe = 8 + hash * 12; // 8% - 20%
-            profitMargin = 15 + hash * 10; // 15% - 25%
-            debtToEquity = 0.5 + hash * 1.5; // 0.5 - 2.0
-            currentRatio = 0.8 + hash * 0.7; // 0.8 - 1.5
-        } else if (stockType === 'energy') {
-            marketCap = 100000000000 + hash * 400000000000; // $100B - $500B
-            eps = 3 + hash * 7; // $3 - $10
-            peRatio = 10 + hash * 15; // 10 - 25
-            revenueGrowth = -5 + hash * 15; // -5% - 10%
-            roe = 5 + hash * 15; // 5% - 20%
-            profitMargin = 8 + hash * 12; // 8% - 20%
-            debtToEquity = 0.3 + hash * 0.7; // 0.3 - 1.0
-            currentRatio = 1.0 + hash * 1.0; // 1.0 - 2.0
-        } else {
-            // General stocks
-            marketCap = 10000000000 + hash * 200000000000; // $10B - $210B
-            eps = 1 + hash * 6; // $1 - $7
-            peRatio = 12 + hash * 18; // 12 - 30
-            revenueGrowth = -3 + hash * 18; // -3% - 15%
-            roe = 6 + hash * 19; // 6% - 25%
-            profitMargin = 3 + hash * 17; // 3% - 20%
-            debtToEquity = hash * 1.5; // 0 - 1.5
-            currentRatio = 0.8 + hash * 1.7; // 0.8 - 2.5
-        }
-        
-        return {
-            marketCap: Math.floor(marketCap),
-            peRatio: parseFloat(peRatio.toFixed(2)),
-            pbRatio: parseFloat((peRatio / (1.5 + hash)).toFixed(2)),
-            pegRatio: parseFloat((peRatio / Math.max(revenueGrowth, 1)).toFixed(2)),
-            eps: parseFloat(eps.toFixed(2)),
-            dividendYield: parseFloat((hash * 4).toFixed(2)),
-            debtToEquity: parseFloat(debtToEquity.toFixed(2)),
-            roe: parseFloat(roe.toFixed(2)),
-            revenueGrowth: parseFloat(revenueGrowth.toFixed(2)),
-            profitMargin: parseFloat(profitMargin.toFixed(2)),
-            currentRatio: parseFloat(currentRatio.toFixed(2)),
-            bookValue: parseFloat((eps * (1.5 + hash)).toFixed(2)),
-            revenue: Math.floor(marketCap / peRatio * 1000000)
-        };
-    }
-
     async fetchRealFundamentalData(symbol) {
         try {
             console.log(`📊 [FundamentalDataAgent] Fetching real fundamental data for ${symbol}`);
@@ -959,7 +852,7 @@ Provide detailed, professional analysis suitable for investment decision-making.
 
         // Fetch company overview
         const overviewUrl = `${config.apiEndpoints.alphaVantage}?function=OVERVIEW&symbol=${symbol}&apikey=${config.apiKeys.alphaVantage}`;
-        const overviewResponse = await axios.get(overviewUrl);
+        const overviewResponse = await axios.get(overviewUrl, { timeout: 10000 }); // 10 seconds timeout
         
         if (overviewResponse.data['Error Message']) {
             throw new Error(overviewResponse.data['Error Message']);
@@ -969,7 +862,7 @@ Provide detailed, professional analysis suitable for investment decision-making.
         
         // Fetch income statement for recent data
         const incomeUrl = `${config.apiEndpoints.alphaVantage}?function=INCOME_STATEMENT&symbol=${symbol}&apikey=${config.apiKeys.alphaVantage}`;
-        const incomeResponse = await axios.get(incomeUrl);
+        const incomeResponse = await axios.get(incomeUrl, { timeout: 10000 }); // 10 seconds timeout
         
         const annualReports = incomeResponse.data.annualReports || [];
         const latestReport = annualReports[0] || {};
@@ -1022,8 +915,21 @@ Provide detailed, professional analysis suitable for investment decision-making.
                         parseFloat(overview.PERatio) || 0,
                         revenueGrowth
                     ),
-                    fairValue: parseFloat(overview.EPS) * 15 || 0, // Simple P/E * 15
-                    upsidePotential: 0 // Would need current price to calculate
+                    fairValue: this.calculateFairValue({
+                        eps: parseFloat(overview.EPS) || 0,
+                        peRatio: parseFloat(overview.PERatio) || 0,
+                        revenueGrowth: revenueGrowth,
+                        currentPrice: parseFloat(overview.Price) || 0,
+                        sector: overview.Sector?.toLowerCase() || 'technology'
+                    }),
+                    upsidePotential: parseFloat(overview.EPS) > 0 && parseFloat(overview.Price) > 0 ? 
+                        this.calculateUpside({
+                            eps: parseFloat(overview.EPS) || 0,
+                            peRatio: parseFloat(overview.PERatio) || 0,
+                            revenueGrowth: revenueGrowth,
+                            currentPrice: parseFloat(overview.Price) || 0,
+                            sector: overview.Sector?.toLowerCase() || 'technology'
+                        }, {}) : 0
                 },
                 keyHighlights: [
                     `${symbol} shows ${revenueGrowth > 10 ? 'strong' : 'moderate'} revenue growth`,
@@ -1041,7 +947,7 @@ Provide detailed, professional analysis suitable for investment decision-making.
 
         // Fetch company metrics
         const metricsUrl = `${config.apiEndpoints.finnhub}/stock/metric?symbol=${symbol}&metric=all&token=${config.apiKeys.finnhub}`;
-        const metricsResponse = await axios.get(metricsUrl);
+        const metricsResponse = await axios.get(metricsUrl, { timeout: 10000 }); // 10 seconds timeout
         
         if (metricsResponse.data.error) {
             throw new Error(metricsResponse.data.error);
@@ -1091,8 +997,21 @@ Provide detailed, professional analysis suitable for investment decision-making.
                         metrics.peBasicExclExtraTTM || 0,
                         0 // No revenue growth data
                     ),
-                    fairValue: (metrics.epsBasicExclExtraTTM || 0) * 15,
-                    upsidePotential: 0
+                    fairValue: this.calculateFairValue({
+                        eps: metrics.epsBasicExclExtraTTM || 0,
+                        peRatio: metrics.peBasicExclExtraTTM || 0,
+                        revenueGrowth: 0,
+                        currentPrice: metrics.price || 0,
+                        sector: 'technology' // Default sector
+                    }),
+                    upsidePotential: metrics.epsBasicExclExtraTTM > 0 && metrics.price > 0 ? 
+                        this.calculateUpside({
+                            eps: metrics.epsBasicExclExtraTTM || 0,
+                            peRatio: metrics.peBasicExclExtraTTM || 0,
+                            revenueGrowth: 0,
+                            currentPrice: metrics.price || 0,
+                            sector: 'technology'
+                        }, {}) : 0
                 },
                 keyHighlights: [
                     `${symbol} shows ${(metrics.netProfitMarginTTM || 0) > 10 ? 'strong' : 'moderate'} profitability`,
@@ -1110,7 +1029,7 @@ Provide detailed, professional analysis suitable for investment decision-making.
 
         // Fetch fundamental data
         const fundamentalUrl = `${config.apiEndpoints.twelveData}/fundamentals?symbol=${symbol}&apikey=${config.apiKeys.twelveData}`;
-        const fundamentalResponse = await axios.get(fundamentalUrl);
+        const fundamentalResponse = await axios.get(fundamentalUrl, { timeout: 10000 }); // 10 seconds timeout
         
         if (fundamentalResponse.data.status === 'error') {
             throw new Error(fundamentalResponse.data.message);
@@ -1160,8 +1079,21 @@ Provide detailed, professional analysis suitable for investment decision-making.
                         parseFloat(fundamental.pe_ratio) || 0,
                         parseFloat(fundamental.revenue_growth) || 0
                     ),
-                    fairValue: (parseFloat(fundamental.eps) || 0) * 15,
-                    upsidePotential: 0
+                    fairValue: this.calculateFairValue({
+                        eps: parseFloat(fundamental.eps) || 0,
+                        peRatio: parseFloat(fundamental.pe_ratio) || 0,
+                        revenueGrowth: parseFloat(fundamental.revenue_growth) || 0,
+                        currentPrice: parseFloat(fundamental.price) || 0,
+                        sector: fundamental.sector?.toLowerCase() || 'technology'
+                    }),
+                    upsidePotential: parseFloat(fundamental.eps) > 0 && parseFloat(fundamental.price) > 0 ? 
+                        this.calculateUpside({
+                            eps: parseFloat(fundamental.eps) || 0,
+                            peRatio: parseFloat(fundamental.pe_ratio) || 0,
+                            revenueGrowth: parseFloat(fundamental.revenue_growth) || 0,
+                            currentPrice: parseFloat(fundamental.price) || 0,
+                            sector: fundamental.sector?.toLowerCase() || 'technology'
+                        }, {}) : 0
                 },
                 keyHighlights: [
                     `${symbol} shows ${(parseFloat(fundamental.revenue_growth) || 0) > 10 ? 'strong' : 'moderate'} revenue growth`,

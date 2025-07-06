@@ -98,31 +98,24 @@ class NewsSentimentAgent extends BaseAgent {
 
   async generateLLMEnhancedNewsSentiment(symbol) {
     try {
-      let newsData;
+      console.log('📰 [NewsSentimentAgent] Fetching real news data from APIs');
+      const newsData = await this.fetchRealNewsData(symbol);
       
-      if (config.analysis.useMockData) {
-        console.log('🧪 [NewsSentimentAgent] Using mock data for testing');
-        newsData = this.generateMockNewsData(symbol);
-      } else {
-        console.log('📰 [NewsSentimentAgent] Fetching real news data from APIs');
-        newsData = await this.fetchRealNewsData(symbol);
-      }
-      
-      if (this.ollamaEnabled) {
-        console.log('🧠 [NewsSentimentAgent] Generating LLM-enhanced news analysis...');
-        
-        // Use LLM to analyze news and generate insights
-        const llmAnalysis = await this.generateLLMNewsInsights(symbol, newsData);
-        
-        return {
-          ...newsData,
-          llmInsights: llmAnalysis,
-          llmEnhanced: true,
-          lastUpdated: new Date().toISOString()
-        };
-      } else {
+      if (!this.ollamaEnabled) {
         throw new Error('LLM is required for NewsSentimentAgent analysis. Ollama service is not available.');
       }
+      
+      console.log('🧠 [NewsSentimentAgent] Generating LLM-enhanced news analysis...');
+      
+      // Use LLM to analyze news and generate insights
+      const llmAnalysis = await this.generateLLMNewsInsights(symbol, newsData);
+      
+      return {
+        ...newsData,
+        llmInsights: llmAnalysis,
+        llmEnhanced: true,
+        lastUpdated: new Date().toISOString()
+      };
       
     } catch (error) {
       console.error('❌ [NewsSentimentAgent] Error generating news sentiment:', error);
@@ -723,174 +716,6 @@ Provide detailed, professional analysis suitable for investment decision-making.
     return 'General';
   }
 
-  generateMockNewsData(symbol) {
-    // Generate stock-specific mock news data based on symbol
-    const symbolHash = this.hashSymbol(symbol);
-    const stockType = this.getStockType(symbol);
-    
-    const mockArticles = this.generateStockSpecificArticles(symbol, stockType, symbolHash.sentiment);
-    const overallScore = mockArticles.reduce((sum, article) => sum + article.sentiment, 0) / mockArticles.length;
-    
-    return {
-      symbol: symbol.toUpperCase(),
-      articles: mockArticles,
-      sentimentAnalysis: {
-        overallScore: Math.round(overallScore),
-        keyThemes: this.getStockSpecificThemes(stockType, symbolHash.themes),
-        summary: `Overall sentiment for ${symbol} is ${overallScore > 60 ? 'positive' : overallScore < 40 ? 'negative' : 'neutral'}.`
-      },
-      socialSentiment: {
-        score: overallScore + (symbolHash.social - 0.5) * 30,
-        mentions: Math.floor(100 + symbolHash.social * 2000),
-        trending: symbolHash.social > 0.7
-      }
-    };
-  }
-
-  // Helper methods for stock-specific data
-  hashSymbol(symbol) {
-    let hash = 0;
-    for (let i = 0; i < symbol.length; i++) {
-      const char = symbol.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    const normalizedHash = Math.abs(hash) / 2147483647;
-    return {
-      sentiment: (normalizedHash * 1000) % 1,
-      themes: (normalizedHash * 2000) % 1,
-      social: (normalizedHash * 3000) % 1
-    };
-  }
-
-  getStockType(symbol) {
-    if (symbol.includes('AAPL') || symbol.includes('MSFT') || symbol.includes('GOOGL') || symbol.includes('TSLA')) {
-      return 'tech';
-    } else if (symbol.includes('JPM') || symbol.includes('BAC') || symbol.includes('WFC')) {
-      return 'financial';
-    } else if (symbol.includes('XOM') || symbol.includes('CVX')) {
-      return 'energy';
-    } else {
-      return 'general';
-    }
-  }
-
-  generateStockSpecificArticles(symbol, stockType, hash) {
-    const articles = [];
-    
-    if (stockType === 'tech') {
-      articles.push(
-        {
-          title: `${symbol} Reports Strong Q3 Earnings, Exceeds Expectations`,
-          summary: `${symbol} announced quarterly earnings that beat analyst estimates, driven by strong product sales and market expansion.`,
-          sentiment: 80 + (hash * 20),
-          source: 'Financial Times',
-          publishedAt: new Date().toISOString()
-        },
-        {
-          title: `${symbol} Launches New AI-Powered Product Line`,
-          summary: `${symbol} unveiled its latest artificial intelligence product, positioning the company for future growth in the AI market.`,
-          sentiment: 70 + (hash * 25),
-          source: 'TechCrunch',
-          publishedAt: new Date().toISOString()
-        },
-        {
-          title: `${symbol} Faces Regulatory Scrutiny in European Markets`,
-          summary: `${symbol} is under investigation by European regulators over potential antitrust concerns.`,
-          sentiment: 30 + (hash * 20),
-          source: 'Reuters',
-          publishedAt: new Date().toISOString()
-        }
-      );
-    } else if (stockType === 'financial') {
-      articles.push(
-        {
-          title: `${symbol} Reports Strong Q3 Earnings, Exceeds Expectations`,
-          summary: `${symbol} announced quarterly earnings that beat analyst estimates, driven by strong lending and investment banking.`,
-          sentiment: 75 + (hash * 20),
-          source: 'Financial Times',
-          publishedAt: new Date().toISOString()
-        },
-        {
-          title: `${symbol} Expands Digital Banking Services`,
-          summary: `${symbol} launched new digital banking features to compete with fintech startups.`,
-          sentiment: 65 + (hash * 25),
-          source: 'Bloomberg',
-          publishedAt: new Date().toISOString()
-        },
-        {
-          title: `${symbol} Faces Regulatory Changes in Banking Sector`,
-          summary: `${symbol} is adapting to new banking regulations that could impact profitability.`,
-          sentiment: 40 + (hash * 20),
-          source: 'Reuters',
-          publishedAt: new Date().toISOString()
-        }
-      );
-    } else if (stockType === 'energy') {
-      articles.push(
-        {
-          title: `${symbol} Reports Strong Q3 Earnings, Exceeds Expectations`,
-          summary: `${symbol} announced quarterly earnings that beat analyst estimates, driven by strong oil prices and production.`,
-          sentiment: 70 + (hash * 20),
-          source: 'Financial Times',
-          publishedAt: new Date().toISOString()
-        },
-        {
-          title: `${symbol} Invests in Renewable Energy Projects`,
-          summary: `${symbol} announced new investments in renewable energy to diversify its portfolio.`,
-          sentiment: 60 + (hash * 25),
-          source: 'Bloomberg',
-          publishedAt: new Date().toISOString()
-        },
-        {
-          title: `${symbol} Faces Environmental Regulations`,
-          summary: `${symbol} is dealing with new environmental regulations that could impact operations.`,
-          sentiment: 35 + (hash * 20),
-          source: 'Reuters',
-          publishedAt: new Date().toISOString()
-        }
-      );
-    } else {
-      // General articles
-      articles.push(
-        {
-          title: `${symbol} Reports Strong Q3 Earnings, Exceeds Expectations`,
-          summary: `${symbol} announced quarterly earnings that beat analyst estimates, driven by strong business performance.`,
-          sentiment: 75 + (hash * 20),
-          source: 'Financial Times',
-          publishedAt: new Date().toISOString()
-        },
-        {
-          title: `${symbol} Announces Strategic Partnership`,
-          summary: `${symbol} has formed a strategic partnership that could significantly expand its market reach.`,
-          sentiment: 70 + (hash * 25),
-          source: 'Bloomberg',
-          publishedAt: new Date().toISOString()
-        },
-        {
-          title: `${symbol} Stock Shows Strong Technical Momentum`,
-          summary: `${symbol} shares are showing positive technical indicators, suggesting continued upward movement.`,
-          sentiment: 65 + (hash * 20),
-          source: 'MarketWatch',
-          publishedAt: new Date().toISOString()
-        }
-      );
-    }
-    
-    return articles;
-  }
-
-  getStockSpecificThemes(stockType, hash) {
-    const themes = {
-      tech: ['earnings', 'ai_innovation', 'product_launch', 'regulation'],
-      financial: ['earnings', 'digital_banking', 'regulation', 'interest_rates'],
-      energy: ['earnings', 'renewable_energy', 'oil_prices', 'environmental_regs'],
-      general: ['earnings', 'partnership', 'market_momentum', 'business_growth']
-    };
-    
-    return themes[stockType] || themes.general;
-  }
-
   async fetchRealNewsData(symbol) {
     try {
       console.log(`📰 [NewsSentimentAgent] Fetching real news data for ${symbol}`);
@@ -938,7 +763,7 @@ Provide detailed, professional analysis suitable for investment decision-making.
     }
 
     const url = `${config.apiEndpoints.newsApi}/everything?q=${symbol}&language=en&sortBy=publishedAt&pageSize=10&apiKey=${config.apiKeys.newsApi}`;
-    const response = await axios.get(url);
+    const response = await axios.get(url, { timeout: 10000 }); // 10 seconds timeout
     
     if (response.data.status === 'error') {
       throw new Error(response.data.message);
@@ -976,7 +801,7 @@ Provide detailed, professional analysis suitable for investment decision-making.
     }
 
     const url = `${config.apiEndpoints.newsData}/news?apikey=${config.apiKeys.newsData}&q=${symbol}&language=en`;
-    const response = await axios.get(url);
+    const response = await axios.get(url, { timeout: 10000 }); // 10 seconds timeout
     
     if (response.data.status === 'error') {
       throw new Error(response.data.message);
@@ -1014,7 +839,7 @@ Provide detailed, professional analysis suitable for investment decision-making.
     }
 
     const url = `${config.apiEndpoints.webz}?token=${config.apiKeys.webz}&q=${symbol}&format=json&size=10`;
-    const response = await axios.get(url);
+    const response = await axios.get(url, { timeout: 10000 }); // 10 seconds timeout
     
     if (response.data.status === 'error') {
       throw new Error(response.data.message);

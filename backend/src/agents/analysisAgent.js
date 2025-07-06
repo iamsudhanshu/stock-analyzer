@@ -12,7 +12,7 @@ class AnalysisAgent extends BaseAgent {
     );
     
     this.pendingAnalyses = new Map();
-    this.dataCollectionTimeout = 300000; // 5 minutes timeout (extended for comprehensive LLM analysis)
+            this.dataCollectionTimeout = 180000; // 3 minutes timeout for LLM analysis
     this.ollama = new OllamaService();
     this.ollamaEnabled = false;
   }
@@ -48,7 +48,7 @@ class AnalysisAgent extends BaseAgent {
           console.log('📥 [AnalysisAgent] Pulling recommended model for analysis...');
           logger.info('Pulling recommended model for analysis...');
           try {
-            await this.ollama.pullModel('llama4:maverick');
+            await this.ollama.pullModel('llama3.1:8b');
             console.log('✅ [AnalysisAgent] Model pull completed successfully');
           } catch (err) {
             console.warn('⚠️ [AnalysisAgent] Failed to pull model:', err.message);
@@ -515,7 +515,7 @@ class AnalysisAgent extends BaseAgent {
 
       // Set a longer timeout specifically for comprehensive analysis
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('LLM analysis timeout')), 240000); // 4 minutes for LLM analysis
+        setTimeout(() => reject(new Error('LLM analysis timeout')), 180000); // 3 minutes for LLM analysis
       });
 
       const llmRecommendations = await Promise.race([analysisPromise, timeoutPromise]);

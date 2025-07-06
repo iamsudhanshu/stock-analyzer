@@ -34,7 +34,7 @@ const config = {
   ollama: {
     baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
     defaultModel: process.env.OLLAMA_MODEL || 'llama3.1:8b',
-    timeout: parseInt(process.env.OLLAMA_TIMEOUT) || 30000,
+    timeout: parseInt(process.env.OLLAMA_TIMEOUT) || 180000, // 3 minutes for LLM
     maxRetries: parseInt(process.env.OLLAMA_MAX_RETRIES) || 3,
     enabled: process.env.OLLAMA_ENABLED !== 'false', // Default to enabled
     
@@ -56,7 +56,7 @@ const config = {
     // Model requirements and recommendations
     recommendedModels: [
       'llama3.1:8b',
-      'llama4:maverick',
+      'llama3.1:8b',
       'llama4:sonar',
       'llama3.1:70b',
       'mistral:7b',
@@ -90,30 +90,28 @@ const config = {
 
   // Analysis Configuration
   analysis: {
-    timeout: 300000, // 5 minutes
-    confidenceThreshold: 0.6,
-    useMockData: false,
-    weights: {
-      technical: 0.4,
-      sentiment: 0.3,
-      fundamental: 0.2,
-      competitive: 0.1
-    },
-    enhancedWeights: {
-      technical: 0.25,
-      sentiment: 0.20,
-      fundamental: 0.20,
-      competitive: 0.15,
-      enhanced: 0.10,
-      advancedTechnical: 0.10
-    },
-    reportTypes: {
-      executive: 'executive_summary',
-      detailed: 'detailed_analysis',
-      technical: 'technical_analysis',
-      fundamental: 'fundamental_analysis',
-      comprehensive: 'comprehensive_report'
-    }
+    // Analysis configuration
+    maxConcurrentRequests: 5,
+    requestTimeout: 10000, // 10 seconds for API calls
+    retryAttempts: 3,
+    retryDelay: 1000, // 1 second
+    
+    // LLM configuration
+    llmMaxTokens: 2000,
+    llmTemperature: 0.3,
+    llmTimeout: 180000, // 3 minutes for LLM
+    
+    // Cache configuration
+    cacheEnabled: true,
+    cacheTTL: 3600, // 1 hour
+    
+    // Data quality thresholds
+    minDataQuality: 0.7,
+    maxDataAge: 86400, // 24 hours
+    
+    // Real-time updates
+    realTimeUpdates: true,
+    updateInterval: 300000, // 5 minutes
   },
 
   // Queue Names

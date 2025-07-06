@@ -11,13 +11,13 @@
  * 4. All analysis is LLM-enhanced
  */
 
-const StockDataAgent = require('./backend/src/agents/stockDataAgent');
-const NewsSentimentAgent = require('./backend/src/agents/newsSentimentAgent');
-const FundamentalDataAgent = require('./backend/src/agents/fundamentalDataAgent');
-const CompetitiveAgent = require('./backend/src/agents/competitiveAgent');
-const UIAgent = require('./backend/src/agents/uiAgent');
+const StockDataAgent = require('../backend/src/agents/stockDataAgent');
+const NewsSentimentAgent = require('../backend/src/agents/newsSentimentAgent');
+const FundamentalDataAgent = require('../backend/src/agents/fundamentalDataAgent');
+const CompetitiveAgent = require('../backend/src/agents/competitiveAgent');
+const UIAgent = require('../backend/src/agents/uiAgent');
 
-const logger = require('./backend/src/utils/logger');
+const logger = require('../backend/src/utils/logger');
 
 class LLMOnlyTester {
   constructor() {

@@ -1,7 +1,7 @@
 const http = require('http');
 
 const OLLAMA_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-const MODEL_NAME = 'llama4:maverick';
+const MODEL_NAME = 'llama3.1:8b';
 
 function getOllamaModels() {
   return new Promise((resolve, reject) => {

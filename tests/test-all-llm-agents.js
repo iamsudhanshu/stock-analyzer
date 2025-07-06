@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 
-const config = require('./backend/src/config');
-const logger = require('./backend/src/utils/logger');
+const config = require('../backend/src/config');
+const logger = require('../backend/src/utils/logger');
 
 // Import all agents
-const StockDataAgent = require('./backend/src/agents/stockDataAgent');
-const NewsSentimentAgent = require('./backend/src/agents/newsSentimentAgent');
-const FundamentalDataAgent = require('./backend/src/agents/fundamentalDataAgent');
-const CompetitiveAgent = require('./backend/src/agents/competitiveAgent');
-const EnhancedDataAgent = require('./backend/src/agents/enhancedDataAgent');
-const AdvancedTechnicalAgent = require('./backend/src/agents/advancedTechnicalAgent');
-const ReportGeneratorAgent = require('./backend/src/agents/reportGeneratorAgent');
+const StockDataAgent = require('../backend/src/agents/stockDataAgent');
+const NewsSentimentAgent = require('../backend/src/agents/newsSentimentAgent');
+const FundamentalDataAgent = require('../backend/src/agents/fundamentalDataAgent');
+const CompetitiveAgent = require('../backend/src/agents/competitiveAgent');
+const EnhancedDataAgent = require('../backend/src/agents/enhancedDataAgent');
+const AdvancedTechnicalAgent = require('../backend/src/agents/advancedTechnicalAgent');
+const ReportGeneratorAgent = require('../backend/src/agents/reportGeneratorAgent');
 const AnalysisAgent = require('./backend/src/agents/analysisAgent');
-const UIAgent = require('./backend/src/agents/uiAgent');
+const UIAgent = require('../backend/src/agents/uiAgent');
 
 async function testAllLLMAgents() {
   console.log('🧠 Testing All LLM-Based Stock Analysis Agents...\n');

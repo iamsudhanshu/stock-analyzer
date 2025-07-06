@@ -90,15 +90,8 @@ class CompetitiveAgent extends BaseAgent {
 
     async generateLLMEnhancedCompetitiveData(symbol) {
         try {
-            let competitiveData;
-            
-            if (config.analysis.useMockData) {
-                console.log('🧪 [CompetitiveAgent] Using mock data for testing');
-                competitiveData = this.generateMockCompetitiveData(symbol);
-            } else {
-                console.log('🏆 [CompetitiveAgent] Fetching real competitive data from APIs');
-                competitiveData = await this.fetchRealCompetitiveData(symbol);
-            }
+            console.log('🏆 [CompetitiveAgent] Fetching real competitive data from APIs');
+            const competitiveData = await this.fetchRealCompetitiveData(symbol);
             
             if (!this.ollamaEnabled) {
                 throw new Error('LLM is required for CompetitiveAgent analysis. Ollama service is not available.');
@@ -505,14 +498,11 @@ Provide detailed, professional analysis suitable for investment decision-making.
                 }
             }
             
-            // If all APIs fail, fall back to enhanced mock data with real competitor names
-            console.log('⚠️ [CompetitiveAgent] All APIs failed, using enhanced mock data with real competitor names');
-            return this.generateEnhancedMockCompetitiveData(symbol);
+                    throw new Error('All competitive data API providers failed');
             
         } catch (error) {
             console.error(`💥 [CompetitiveAgent] Error fetching real competitive data for ${symbol}:`, error);
-            // Fall back to enhanced mock data
-            return this.generateEnhancedMockCompetitiveData(symbol);
+                    throw new Error('Failed to fetch competitive data from any provider');
         }
     }
 
@@ -523,7 +513,7 @@ Provide detailed, professional analysis suitable for investment decision-making.
 
         // Fetch company overview for competitive analysis
         const overviewUrl = `${config.apiEndpoints.alphaVantage}?function=OVERVIEW&symbol=${symbol}&apikey=${config.apiKeys.alphaVantage}`;
-        const overviewResponse = await axios.get(overviewUrl);
+        const overviewResponse = await axios.get(overviewUrl, { timeout: 10000 }); // 10 seconds timeout
         
         if (overviewResponse.data['Error Message']) {
             throw new Error(overviewResponse.data['Error Message']);
@@ -560,7 +550,7 @@ Provide detailed, professional analysis suitable for investment decision-making.
 
         // Fetch company metrics for competitive analysis
         const metricsUrl = `${config.apiEndpoints.finnhub}/stock/metric?symbol=${symbol}&metric=all&token=${config.apiKeys.finnhub}`;
-        const metricsResponse = await axios.get(metricsUrl);
+        const metricsResponse = await axios.get(metricsUrl, { timeout: 10000 }); // 10 seconds timeout
         
         if (metricsResponse.data.error) {
             throw new Error(metricsResponse.data.error);
@@ -595,7 +585,7 @@ Provide detailed, professional analysis suitable for investment decision-making.
 
         // Fetch fundamental data for competitive analysis
         const fundamentalUrl = `${config.apiEndpoints.twelveData}/fundamentals?symbol=${symbol}&apikey=${config.apiKeys.twelveData}`;
-        const fundamentalResponse = await axios.get(fundamentalUrl);
+        const fundamentalResponse = await axios.get(fundamentalUrl, { timeout: 10000 }); // 10 seconds timeout
         
         if (fundamentalResponse.data.status === 'error') {
             throw new Error(fundamentalResponse.data.message || 'Twelve Data API error');
@@ -812,102 +802,7 @@ Provide detailed, professional analysis suitable for investment decision-making.
         return 65; // Default competitive score
     }
 
-    generateEnhancedMockCompetitiveData(symbol) {
-        // Enhanced mock data with real competitor names
-        const sector = this.inferSector(symbol);
-        const realCompetitors = this.getRealCompetitors(symbol, sector);
-        
-        return {
-            symbol: symbol.toUpperCase(),
-            competitive: {
-                peers: realCompetitors,
-                competitors: realCompetitors,
-                marketPosition: {
-                    marketShare: 2 + Math.random() * 25,
-                    industryRank: Math.floor(Math.random() * 50) + 1,
-                    competitiveIntensity: this.assessCompetitiveIntensity(sector),
-                    marketLeader: false
-                },
-                competitiveAdvantages: [
-                    {
-                        advantage: 'Market presence and brand recognition',
-                        strength: 'strong',
-                        unique: true,
-                        sustainable: true
-                    },
-                    {
-                        advantage: 'Technology and innovation capabilities',
-                        strength: 'moderate',
-                        unique: true,
-                        sustainable: true
-                    }
-                ],
-                swotAnalysis: {
-                    strengths: ['Market presence', 'Financial stability', 'Industry expertise'],
-                    weaknesses: ['Limited diversification', 'Market concentration'],
-                    opportunities: ['Market expansion', 'Product innovation', 'Strategic partnerships'],
-                    threats: ['Competition', 'Regulatory changes', 'Market volatility']
-                },
-                competitiveScore: Math.floor(50 + Math.random() * 50)
-            }
-        };
-    }
 
-    generateMockCompetitiveData(symbol) {
-        // Generate realistic mock competitive data for demonstration
-        const marketShare = 2 + Math.random() * 25;
-        const industryRank = Math.floor(Math.random() * 50) + 1;
-        const competitiveIntensity = ['low', 'medium', 'high'][Math.floor(Math.random() * 3)];
-        
-        const mockPeers = [
-            'Competitor A', 'Competitor B', 'Competitor C', 'Competitor D', 'Competitor E'
-        ];
-        
-        const mockAdvantages = [
-            {
-                advantage: 'Strong brand recognition',
-                strength: 'strong',
-                unique: true,
-                sustainable: true
-            },
-            {
-                advantage: 'Technology leadership',
-                strength: 'moderate',
-                unique: true,
-                sustainable: true
-            },
-            {
-                advantage: 'Cost efficiency',
-                strength: 'moderate',
-                unique: false,
-                sustainable: true
-            }
-        ];
-        
-        const mockSWOT = {
-            strengths: ['Innovation capability', 'Market presence', 'Financial strength'],
-            weaknesses: ['Limited international presence', 'Dependency on key products'],
-            opportunities: ['Market expansion', 'Product diversification', 'Strategic partnerships'],
-            threats: ['Intense competition', 'Regulatory changes', 'Technology disruption']
-        };
-        
-        return {
-            symbol: symbol.toUpperCase(),
-            competitive: {
-                peers: mockPeers,
-                competitors: mockPeers, // Add competitors array for test validation
-                marketPosition: {
-                    marketShare: parseFloat(marketShare.toFixed(2)),
-                    industryRank: industryRank,
-                    competitiveIntensity: competitiveIntensity,
-                    marketLeader: marketShare > 15
-                },
-                competitiveAdvantages: mockAdvantages,
-                swotAnalysis: mockSWOT,
-                competitiveScore: Math.floor(50 + Math.random() * 50)
-            }
-        };
-    }
 }
 
 module.exports = CompetitiveAgent; 

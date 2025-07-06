@@ -4,8 +4,8 @@ const logger = require('./logger');
 class OllamaService {
     constructor(config = {}) {
         this.baseUrl = config.baseUrl || process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-        this.defaultModel = config.model || process.env.OLLAMA_MODEL || 'llama4:maverick';
-        this.timeout = config.timeout || 300000; // 5 minutes for comprehensive analysis
+        this.defaultModel = config.model || process.env.OLLAMA_MODEL || 'llama3.1:8b';
+        this.timeout = config.timeout || 180000; // 3 minutes for LLM
         this.maxRetries = config.maxRetries || 3;
         
         logger.info('OllamaService initialized', {
@@ -20,7 +20,7 @@ class OllamaService {
     async isAvailable() {
         try {
             const response = await axios.get(`${this.baseUrl}/api/tags`, {
-                timeout: 5000
+                timeout: 10000 // 10 seconds for API calls
             });
             return response.status === 200;
         } catch (error) {
@@ -624,7 +624,7 @@ Format as JSON:
             const response = await axios.post(`${this.baseUrl}/api/pull`, {
                 name: modelName
             }, {
-                timeout: 300000 // 5 minutes for model download
+                timeout: 180000 // 3 minutes for model operations
             });
 
             logger.info('Model pull completed', { 

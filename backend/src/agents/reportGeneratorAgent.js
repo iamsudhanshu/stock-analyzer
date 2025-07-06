@@ -49,12 +49,11 @@ class ReportGeneratorAgent extends BaseAgent {
       const { symbol, analysisData } = payload;
       logger.info(`📋 [ReportGeneratorAgent] Generating comprehensive report for ${symbol}`);
 
-      // Use real data if available and not in mock mode
-      let data;
-      if (config.analysis.useMockData) {
-        data = this.generateMockAnalysisData(symbol);
-      } else {
-        data = analysisData || this.generateMockAnalysisData(symbol);
+      // Always use real analysis data - no mock data fallback
+      const data = analysisData;
+      
+      if (!data) {
+        throw new Error('ReportGeneratorAgent requires real analysis data - cannot generate report without data');
       }
 
       const report = {
@@ -997,97 +996,48 @@ class ReportGeneratorAgent extends BaseAgent {
 
   async generateLLMEnhancedReport(symbol, analysisData) {
     try {
-      // Use real data if available and not in mock mode
-      let data;
-      if (config.analysis.useMockData) {
-        data = this.generateMockAnalysisData(symbol);
-      } else {
-        data = analysisData || this.generateMockAnalysisData(symbol);
+      // LLM-enhanced reports require both LLM and real data
+      if (!this.ollamaEnabled) {
+        throw new Error('LLM is required for ReportGeneratorAgent analysis. Ollama service is not available.');
       }
 
-      if (this.ollamaEnabled) {
-        console.log('🧠 [ReportGeneratorAgent] Generating LLM-enhanced report...');
-        // Use LLM to analyze data and generate comprehensive report
-        const llmAnalysis = await this.generateLLMReportInsights(symbol, data);
-        const executiveSummary = await this.generateExecutiveSummary(symbol, data);
-        const detailedAnalysis = await this.generateDetailedAnalysis(symbol, data);
-        return {
-          symbol: symbol.toUpperCase(),
-          report: {
-            generatedAt: new Date().toISOString(),
-            executiveSummary: executiveSummary,
-            detailedAnalysis: detailedAnalysis,
-            technicalAnalysis: await this.generateTechnicalAnalysis(symbol, data),
-            fundamentalAnalysis: await this.generateFundamentalAnalysis(symbol, data),
-            riskAssessment: await this.generateRiskAssessment(symbol, data),
-            investmentRecommendations: await this.generateRecommendations(symbol, data),
-            marketOutlook: await this.generateMarketOutlook(symbol, data),
-            appendices: await this.generateAppendices(symbol, data)
-          },
+      if (!analysisData) {
+        throw new Error('LLM-enhanced reports require real analysis data - cannot use mock data');
+      }
+
+      console.log('🧠 [ReportGeneratorAgent] Generating LLM-enhanced report...');
+      
+      // Use LLM to analyze data and generate comprehensive report
+      const llmAnalysis = await this.generateLLMReportInsights(symbol, analysisData);
+      const executiveSummary = await this.generateExecutiveSummary(symbol, analysisData);
+      const detailedAnalysis = await this.generateDetailedAnalysis(symbol, analysisData);
+      
+      return {
+        symbol: symbol.toUpperCase(),
+        report: {
+          generatedAt: new Date().toISOString(),
           executiveSummary: executiveSummary,
           detailedAnalysis: detailedAnalysis,
-          llmInsights: llmAnalysis,
-          llmEnhanced: true,
-          lastUpdated: new Date().toISOString()
-        };
-      } else {
-        throw new Error('Ollama service not available');
-      }
+          technicalAnalysis: await this.generateTechnicalAnalysis(symbol, analysisData),
+          fundamentalAnalysis: await this.generateFundamentalAnalysis(symbol, analysisData),
+          riskAssessment: await this.generateRiskAssessment(symbol, analysisData),
+          investmentRecommendations: await this.generateRecommendations(symbol, analysisData),
+          marketOutlook: await this.generateMarketOutlook(symbol, analysisData),
+          appendices: await this.generateAppendices(symbol, analysisData)
+        },
+        executiveSummary: executiveSummary,
+        detailedAnalysis: detailedAnalysis,
+        llmInsights: llmAnalysis,
+        llmEnhanced: true,
+        lastUpdated: new Date().toISOString()
+      };
     } catch (error) {
       console.error('❌ [ReportGeneratorAgent] Error in generateLLMEnhancedReport:', error);
       throw error;
     }
   }
 
-  generateMockAnalysisData(symbol) {
-    return {
-      stockData: {
-        currentPrice: { price: 210.50, changePercent: 2.5 },
-        technicalIndicators: {
-          rsi: [65, 70, 68, 72, 75],
-          macd: [0.5, 0.8, 1.2, 1.0, 1.5],
-          sma: { sma20: [205, 206, 207, 208, 209], sma50: [200, 201, 202, 203, 204] },
-          ema: { ema12: [208, 209, 210, 211, 212], ema26: [205, 206, 207, 208, 209] }
-        },
-        volumeAnalysis: { volumeRatio: 1.2, volumeTrend: 'increasing' }
-      },
-      fundamentalData: {
-        fundamentals: {
-          marketCap: 200000000000,
-          peRatio: 25.5,
-          dividendYield: 0.8,
-          grossMargin: 0.75,
-          operatingMargin: 0.25,
-          netMargin: 0.18,
-          roe: 0.22,
-          roa: 0.12,
-          debtToEquity: 0.3,
-          currentRatio: 1.8,
-          revenueGrowth: 0.15,
-          earningsGrowth: 0.20
-        }
-      },
-      newsSentiment: {
-        sentiment: { overall: 0.65, recent: 0.70 },
-        newsAnalysis: { positive: 15, negative: 5, neutral: 10 }
-      },
-      competitiveData: {
-        competitive: {
-          marketPosition: { marketShare: 0.25, industryRank: 2 },
-          peers: [{ symbol: 'MSFT', performance: 0.12 }, { symbol: 'GOOGL', performance: 0.08 }]
-        }
-      },
-      enhancedData: {
-        optionsData: { putCallRatio: 0.85, impliedVolatility: 0.25 },
-        analystRatings: { consensusRating: 'Buy', priceTarget: 225 }
-      },
-      advancedTechnical: {
-        chartPatterns: { detectedPatterns: [{ name: 'Ascending Triangle', confidence: 0.75 }] },
-        elliottWave: { currentWave: 'wave_3', waveCount: 5 },
-        fibonacci: { currentLevel: '0.618', retracementLevels: { '0.618': 200 } }
-      }
-    };
-  }
+
 
   async generateLLMReportInsights(symbol, analysisData) {
     try {
@@ -1161,7 +1111,7 @@ Provide analysis in the following JSON format:
       return this.parseLLMResponse(response);
     } catch (error) {
       console.error('❌ [ReportGeneratorAgent] LLM analysis error:', error.message);
-      return this.generateFallbackReportInsights(analysisData);
+      throw new Error(`LLM analysis failed: ${error.message}`);
     }
   }
 
@@ -1235,7 +1185,7 @@ Provide analysis in the following JSON format:
       };
     } catch (error) {
       console.error('❌ [ReportGeneratorAgent] Response parsing error:', error.message);
-      return this.generateFallbackReportInsights({});
+      throw new Error(`LLM response parsing failed: ${error.message}`);
     }
   }
 
@@ -1248,19 +1198,19 @@ Provide analysis in the following JSON format:
         keyDrivers: ['Revenue growth', 'Market expansion'],
         risks: ['Competition', 'Market volatility']
       },
-      valuationAnalysis: {
-        fairValue: '225',
-        upside: '15%',
-        valuationMethod: 'DCF analysis',
-        comparison: 'Trading at premium to peers',
-        confidence: 'medium'
-      },
+              valuationAnalysis: {
+          fairValue: 'N/A',
+          upside: 'N/A',
+          valuationMethod: 'Valuation analysis',
+          comparison: 'Insufficient data for comparison',
+          confidence: 'low'
+        },
       technicalOutlook: {
-        trend: 'bullish',
-        strength: 'moderate',
-        keyLevels: ['200', '210', '220'],
+        trend: 'neutral',
+        strength: 'unknown',
+        keyLevels: ['N/A'],
         timeframe: 'medium_term',
-        signals: ['RSI neutral', 'MACD bullish']
+        signals: ['Insufficient data']
       },
       fundamentalOutlook: {
         growthProspects: 'strong',
@@ -1277,11 +1227,11 @@ Provide analysis in the following JSON format:
         technicalRisk: 'low'
       },
       recommendations: {
-        action: 'buy',
-        confidence: 'medium',
-        targetPrice: '225',
+        action: 'hold',
+        confidence: 'low',
+        targetPrice: 'N/A',
         timeHorizon: 'medium_term',
-        positionSize: 'medium'
+        positionSize: 'small'
       },
       marketContext: {
         sectorOutlook: 'bullish',
@@ -1299,16 +1249,44 @@ Provide analysis in the following JSON format:
   extractTimeHorizon(text) { return text.includes('short') ? 'short_term' : text.includes('long') ? 'long_term' : 'medium_term'; }
   extractKeyDrivers(text) { return ['Revenue growth', 'Market expansion']; }
   extractRisks(text) { return ['Competition', 'Market volatility']; }
-  extractFairValue(text) { return '225'; }
-  extractUpside(text) { return '15%'; }
-  extractValuationMethod(text) { return 'DCF analysis'; }
+  extractFairValue(text) { 
+    const match = text.match(/\$?(\d+(?:\.\d+)?)/);
+    return match ? match[1] : 'N/A'; 
+  }
+  extractUpside(text) { 
+    const match = text.match(/(\d+(?:\.\d+)?)\s*%/);
+    return match ? match[1] + '%' : 'N/A'; 
+  }
+  extractValuationMethod(text) { 
+    if (text.includes('DCF') || text.includes('discount')) return 'DCF analysis';
+    if (text.includes('P/E') || text.includes('price-to-earnings')) return 'P/E ratio analysis';
+    if (text.includes('book value') || text.includes('P/B')) return 'Book value analysis';
+    if (text.includes('revenue') || text.includes('P/S')) return 'Revenue multiple analysis';
+    return 'Valuation analysis';
+  }
   extractComparison(text) { return 'Trading at premium to peers'; }
   extractConfidence(text) { return text.includes('high') ? 'high' : text.includes('low') ? 'low' : 'medium'; }
   extractTechnicalTrend(text) { return text.includes('bullish') ? 'bullish' : text.includes('bearish') ? 'bearish' : 'neutral'; }
   extractTechnicalStrength(text) { return text.includes('strong') ? 'strong' : text.includes('weak') ? 'weak' : 'moderate'; }
-  extractKeyLevels(text) { return ['200', '210', '220']; }
+  extractKeyLevels(text) { 
+    const levels = [];
+    const matches = text.match(/\$?(\d+(?:\.\d+)?)/g);
+    if (matches) {
+      matches.slice(0, 3).forEach(match => {
+        levels.push(match.replace('$', ''));
+      });
+    }
+    return levels.length > 0 ? levels : ['N/A']; 
+  }
   extractTimeframe(text) { return text.includes('short') ? 'short_term' : text.includes('long') ? 'long_term' : 'medium_term'; }
-  extractSignals(text) { return ['RSI neutral', 'MACD bullish']; }
+  extractSignals(text) { 
+    const signals = [];
+    if (text.includes('RSI')) signals.push('RSI mentioned');
+    if (text.includes('MACD')) signals.push('MACD mentioned');
+    if (text.includes('moving average')) signals.push('Moving average');
+    if (text.includes('support') || text.includes('resistance')) signals.push('Support/Resistance');
+    return signals.length > 0 ? signals : ['Technical analysis']; 
+  }
   extractGrowthProspects(text) { return text.includes('strong') ? 'strong' : text.includes('weak') ? 'weak' : 'moderate'; }
   extractFinancialHealth(text) { return text.includes('excellent') ? 'excellent' : text.includes('poor') ? 'poor' : 'good'; }
   extractSustainability(text) { return text.includes('high') ? 'high' : text.includes('low') ? 'low' : 'medium'; }
@@ -1321,7 +1299,10 @@ Provide analysis in the following JSON format:
   extractTechnicalRisk(text) { return text.includes('high') ? 'high' : text.includes('low') ? 'low' : 'medium'; }
   extractAction(text) { return text.includes('buy') ? 'buy' : text.includes('sell') ? 'sell' : 'hold'; }
   extractRecommendationConfidence(text) { return text.includes('high') ? 'high' : text.includes('low') ? 'low' : 'medium'; }
-  extractTargetPrice(text) { return '225'; }
+  extractTargetPrice(text) { 
+    const match = text.match(/\$?(\d+(?:\.\d+)?)/);
+    return match ? match[1] : 'N/A'; 
+  }
   extractRecommendationTimeframe(text) { return text.includes('short') ? 'short_term' : text.includes('long') ? 'long_term' : 'medium_term'; }
   extractPositionSize(text) { return text.includes('large') ? 'large' : text.includes('small') ? 'small' : 'medium'; }
   extractSectorOutlook(text) { return text.includes('bullish') ? 'bullish' : text.includes('bearish') ? 'bearish' : 'neutral'; }
@@ -1356,6 +1337,42 @@ Provide analysis in the following JSON format:
     if (reportData.appendices) confidence += 10;
     
     return Math.min(confidence, 100);
+  }
+
+  async generateReport(symbol, analysisData = null) {
+    try {
+      console.log('📊 [ReportGeneratorAgent] Generating comprehensive analysis report...');
+      
+      // Always use real analysis data - no mock data fallback
+      const data = analysisData;
+      
+      if (!data) {
+        throw new Error('ReportGeneratorAgent requires real analysis data - cannot generate report without data');
+      }
+      
+      if (!this.ollamaEnabled) {
+        throw new Error('LLM is required for ReportGeneratorAgent analysis. Ollama service is not available.');
+      }
+      
+      console.log('🧠 [ReportGeneratorAgent] Generating LLM-enhanced comprehensive report...');
+      
+      // Generate LLM-enhanced report
+      const llmReport = await this.generateLLMEnhancedReport(symbol, data);
+      
+      return {
+        symbol: symbol.toUpperCase(),
+        report: llmReport,
+        llmEnhanced: true,
+        lastUpdated: new Date().toISOString()
+      };
+      
+    } catch (error) {
+      console.error('❌ [ReportGeneratorAgent] Error generating report:', error);
+      logger.error('ReportGeneratorAgent report generation error:', error);
+      
+      // No fallback - throw error if LLM is not available
+      throw new Error(`ReportGeneratorAgent requires LLM capabilities: ${error.message}`);
+    }
   }
 }
 

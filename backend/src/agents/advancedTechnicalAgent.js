@@ -537,95 +537,119 @@ class AdvancedTechnicalAgent extends BaseAgent {
 
   async generateLLMEnhancedAdvancedTechnicalData(symbol) {
     try {
-      // Generate mock historical data for technical analysis
-      const mockHistoricalData = this.generateMockHistoricalData(symbol);
+      console.log('📊 [AdvancedTechnicalAgent] Fetching real historical data from APIs');
+      const historicalData = await this.fetchRealHistoricalData(symbol);
       
-      if (this.ollamaEnabled) {
-        console.log('🧠 [AdvancedTechnicalAgent] Generating LLM-enhanced technical analysis...');
-        
-        // Use LLM to analyze technical data and generate insights
-        const llmAnalysis = await this.generateLLMTechnicalInsights(symbol, mockHistoricalData);
-        
-        const chartPatterns = await this.analyzeChartPatterns(mockHistoricalData);
-        const momentum = await this.analyzeMomentum(mockHistoricalData);
-        
-        return {
-          symbol: symbol.toUpperCase(),
-          advancedTechnical: {
-            chartPatterns: chartPatterns,
-            elliottWave: await this.analyzeElliottWave(mockHistoricalData),
-            fibonacci: await this.calculateFibonacciLevels(mockHistoricalData),
-            marketStructure: await this.analyzeMarketStructure(mockHistoricalData),
-            supportResistance: await this.findKeyLevels(mockHistoricalData),
-            momentum: momentum,
-            volatility: await this.analyzeVolatility(mockHistoricalData)
-          },
-          patterns: chartPatterns.detectedPatterns && chartPatterns.detectedPatterns.length > 0 
-            ? chartPatterns.detectedPatterns 
-            : [
-                {
-                  name: 'Ascending Triangle',
-                  type: 'bullish',
-                  confidence: 0.75,
-                  target: 220,
-                  description: 'Continuation pattern with bullish bias'
-                }
-              ],
-          indicators: {
-            rsi: momentum.rsi,
-            macd: momentum.macd,
-            stochastic: momentum.stochastic,
-            williamsR: momentum.williamsR
-          },
-          llmInsights: {
-            analysis: {
-              ...llmAnalysis,
-              technicalOutlook: llmAnalysis.structureAnalysis?.trend || 'neutral',
-              signalStrength: llmAnalysis.momentumAnalysis?.strength || 'moderate'
-            },
+      if (!this.ollamaEnabled) {
+        throw new Error('LLM is required for AdvancedTechnicalAgent analysis. Ollama service is not available.');
+      }
+      
+      console.log('🧠 [AdvancedTechnicalAgent] Generating LLM-enhanced technical analysis...');
+      
+      // Use LLM to analyze technical data and generate insights
+      const llmAnalysis = await this.generateLLMTechnicalInsights(symbol, historicalData);
+      
+      const chartPatterns = await this.analyzeChartPatterns(historicalData);
+      const momentum = await this.analyzeMomentum(historicalData);
+      
+      return {
+        symbol: symbol.toUpperCase(),
+        advancedTechnical: {
+          chartPatterns: chartPatterns,
+          elliottWave: await this.analyzeElliottWave(historicalData),
+          fibonacci: await this.calculateFibonacciLevels(historicalData),
+          marketStructure: await this.analyzeMarketStructure(historicalData),
+          supportResistance: await this.findKeyLevels(historicalData),
+          momentum: momentum,
+          volatility: await this.analyzeVolatility(historicalData)
+        },
+        patterns: chartPatterns.detectedPatterns && chartPatterns.detectedPatterns.length > 0 
+          ? chartPatterns.detectedPatterns 
+          : [
+              {
+                name: 'Ascending Triangle',
+                type: 'bullish',
+                confidence: 0.75,
+                target: 220,
+                description: 'Continuation pattern with bullish bias'
+              }
+            ],
+        indicators: {
+          rsi: momentum.rsi,
+          macd: momentum.macd,
+          stochastic: momentum.stochastic,
+          williamsR: momentum.williamsR
+        },
+        llmInsights: {
+          analysis: {
+            ...llmAnalysis,
             technicalOutlook: llmAnalysis.structureAnalysis?.trend || 'neutral',
             signalStrength: llmAnalysis.momentumAnalysis?.strength || 'moderate'
           },
-          llmEnhanced: true,
-          lastUpdated: new Date().toISOString()
-        };
-      } else {
-        throw new Error('Ollama service not available');
-      }
-    } catch (error) {
-      console.error('❌ [AdvancedTechnicalAgent] Error generating LLM-enhanced data:', error.message);
-      return {
-        symbol: symbol.toUpperCase(),
-        error: error.message,
-        llmEnhanced: false,
+          technicalOutlook: llmAnalysis.structureAnalysis?.trend || 'neutral',
+          signalStrength: llmAnalysis.momentumAnalysis?.strength || 'moderate'
+        },
+        llmEnhanced: true,
         lastUpdated: new Date().toISOString()
       };
+      
+    } catch (error) {
+      console.error('❌ [AdvancedTechnicalAgent] Error generating LLM-enhanced data:', error.message);
+      throw new Error(`AdvancedTechnicalAgent requires LLM capabilities: ${error.message}`);
     }
   }
 
-  generateMockHistoricalData(symbol) {
-    const data = [];
-    let basePrice = 200;
-    
-    for (let i = 0; i < 100; i++) {
-      const change = (Math.random() - 0.5) * 10;
-      basePrice += change;
-      const high = basePrice + Math.random() * 5;
-      const low = basePrice - Math.random() * 5;
-      const volume = Math.floor(Math.random() * 1000000) + 500000;
+  async fetchRealHistoricalData(symbol) {
+    try {
+      console.log(`📊 [AdvancedTechnicalAgent] Fetching real historical data for ${symbol}`);
       
-      data.push({
-        date: new Date(Date.now() - (100 - i) * 24 * 60 * 60 * 1000).toISOString(),
-        open: basePrice,
-        high: high,
-        low: low,
-        close: basePrice + (Math.random() - 0.5) * 2,
-        volume: volume
-      });
+      // Try multiple API providers for historical data
+      const providers = [
+        () => this.fetchFromAlphaVantage(symbol),
+        () => this.fetchFromFinnhub(symbol),
+        () => this.fetchFromTwelveData(symbol)
+      ];
+      
+      for (const provider of providers) {
+        try {
+          const data = await provider();
+          if (data && data.length > 0) {
+            console.log(`✅ [AdvancedTechnicalAgent] Successfully fetched data from provider`);
+            return data;
+          }
+        } catch (error) {
+          console.log(`⚠️ [AdvancedTechnicalAgent] Provider failed: ${error.message}`);
+          continue;
+        }
+      }
+      
+      throw new Error('All historical data providers failed');
+      
+    } catch (error) {
+      console.error(`❌ [AdvancedTechnicalAgent] Failed to fetch real historical data: ${error.message}`);
+      throw new Error(`Historical data fetch failed: ${error.message}`);
     }
-    
-    return data;
   }
+
+  async fetchFromAlphaVantage(symbol) {
+    // Implementation for Alpha Vantage historical data
+    // This would fetch real historical price data
+    throw new Error('Alpha Vantage historical data not implemented');
+  }
+
+  async fetchFromFinnhub(symbol) {
+    // Implementation for Finnhub historical data
+    // This would fetch real historical price data
+    throw new Error('Finnhub historical data not implemented');
+  }
+
+  async fetchFromTwelveData(symbol) {
+    // Implementation for Twelve Data historical data
+    // This would fetch real historical price data
+    throw new Error('Twelve Data historical data not implemented');
+  }
+
+
 
   async generateLLMTechnicalInsights(symbol, historicalData) {
     try {
@@ -701,7 +725,7 @@ Provide analysis in the following JSON format:
       return this.parseLLMResponse(response);
     } catch (error) {
       console.error('❌ [AdvancedTechnicalAgent] LLM analysis error:', error.message);
-      return this.generateFallbackTechnicalInsights(historicalData);
+      throw new Error(`AdvancedTechnicalAgent LLM analysis error: ${error.message}`);
     }
   }
 
@@ -775,62 +799,8 @@ Provide analysis in the following JSON format:
       };
     } catch (error) {
       console.error('❌ [AdvancedTechnicalAgent] Response parsing error:', error.message);
-      return this.generateFallbackTechnicalInsights([]);
+      throw new Error('AdvancedTechnicalAgent LLM response parsing error');
     }
-  }
-
-  generateFallbackTechnicalInsights(historicalData) {
-    return {
-      patternAnalysis: {
-        primaryPattern: 'ascending_triangle',
-        confidence: 'medium',
-        target: '220',
-        timeframe: 'medium_term',
-        description: 'Bullish continuation pattern forming'
-      },
-      waveAnalysis: {
-        currentWave: 'wave_3',
-        wavePosition: 'middle',
-        nextTarget: '225',
-        completion: '60%',
-        waveCharacteristics: 'Strong impulse wave in progress'
-      },
-      fibonacciAnalysis: {
-        currentLevel: '0.618',
-        nextLevel: '0.786',
-        keyLevels: ['200', '210', '220'],
-        retracement: '38.2%',
-        extension: '161.8%'
-      },
-      structureAnalysis: {
-        trend: 'uptrend',
-        strength: 'moderate',
-        breakouts: ['200 resistance', '210 resistance'],
-        consolidation: 'Brief consolidation before continuation',
-        momentum: 'Positive momentum building'
-      },
-      supportResistance: {
-        keySupport: '195',
-        keyResistance: '210',
-        breakoutLevels: ['210', '220'],
-        psychologicalLevels: ['200', '210'],
-        dynamicLevels: 'SMA 20 and 50 providing support'
-      },
-      momentumAnalysis: {
-        rsiSignal: 'neutral',
-        macdSignal: 'bullish',
-        stochasticSignal: 'neutral',
-        divergence: 'none',
-        strength: 'moderate'
-      },
-      volatilityAnalysis: {
-        volatilityRegime: 'medium',
-        volatilityBreakout: 'no',
-        bollingerPosition: 'middle',
-        atrLevel: '5.2',
-        volatilityOutlook: 'stable'
-      }
-    };
   }
 
   // Fallback extraction methods
@@ -841,7 +811,10 @@ Provide analysis in the following JSON format:
   extractPatternDescription(text) { return 'Technical pattern analysis indicates potential continuation'; }
   extractCurrentWave(text) { return text.includes('wave') ? 'wave_3' : 'wave_1'; }
   extractWavePosition(text) { return text.includes('early') ? 'early' : text.includes('late') ? 'late' : 'middle'; }
-  extractNextTarget(text) { return '225'; }
+  extractNextTarget(text) { 
+    const match = text.match(/\$?(\d+(?:\.\d+)?)/);
+    return match ? match[1] : 'N/A'; 
+  }
   extractCompletion(text) { return '60%'; }
   extractWaveCharacteristics(text) { return 'Elliott wave analysis shows impulse wave structure'; }
   extractCurrentLevel(text) { return '0.618'; }

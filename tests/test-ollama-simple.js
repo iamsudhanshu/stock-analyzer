@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const OllamaService = require('./backend/src/utils/ollama');
+const OllamaService = require('../backend/src/utils/ollama');
 
 async function testOllama() {
   console.log('🧠 Testing Ollama Service...\n');

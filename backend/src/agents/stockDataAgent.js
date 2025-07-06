@@ -98,30 +98,24 @@ class StockDataAgent extends BaseAgent {
 
   async generateLLMEnhancedStockData(symbol) {
     try {
-      let stockData;
-      if (config.analysis.useMockData) {
-        console.log('🧪 [StockDataAgent] Using mock data for testing');
-        stockData = this.generateMockStockData(symbol);
-      } else {
-        console.log('📊 [StockDataAgent] Fetching real stock data from APIs');
-        stockData = await this.fetchRealStockData(symbol);
-      }
+      console.log('📊 [StockDataAgent] Fetching real stock data from APIs');
+      const stockData = await this.fetchRealStockData(symbol);
       
-      if (this.ollamaEnabled) {
-        console.log('🧠 [StockDataAgent] Generating LLM-enhanced stock analysis...');
-        
-        // Use LLM to analyze stock data and generate insights
-        const llmAnalysis = await this.generateLLMStockInsights(symbol, stockData);
-        
-        return {
-          ...stockData,
-          llmInsights: llmAnalysis,
-          llmEnhanced: true,
-          lastUpdated: new Date().toISOString()
-        };
-      } else {
+      if (!this.ollamaEnabled) {
         throw new Error('LLM is required for StockDataAgent analysis. Ollama service is not available.');
       }
+      
+      console.log('🧠 [StockDataAgent] Generating LLM-enhanced stock analysis...');
+      
+      // Use LLM to analyze stock data and generate insights
+      const llmAnalysis = await this.generateLLMStockInsights(symbol, stockData);
+      
+      return {
+        ...stockData,
+        llmInsights: llmAnalysis,
+        llmEnhanced: true,
+        lastUpdated: new Date().toISOString()
+      };
       
     } catch (error) {
       console.error('❌ [StockDataAgent] Error generating stock data:', error);
@@ -439,110 +433,6 @@ Provide detailed, professional analysis specific to ${symbol} suitable for inves
     return 'low';
   }
 
-  generateMockStockData(symbol) {
-    // Generate stock-specific mock data based on symbol
-    const symbolHash = this.hashSymbol(symbol);
-    const basePrice = this.getStockSpecificPrice(symbol, symbolHash.price);
-    const volume = this.getStockSpecificVolume(symbol, symbolHash.volume);
-    const marketCap = this.getStockSpecificMarketCap(symbol, basePrice, symbolHash.price);
-    
-    return {
-      symbol: symbol.toUpperCase(),
-      currentPrice: parseFloat(basePrice.toFixed(2)),
-      volume: Math.floor(volume),
-      marketCap: Math.floor(marketCap),
-      fiftyTwoWeekHigh: parseFloat((basePrice * (1.2 + symbolHash.price * 0.2)).toFixed(2)),
-      fiftyTwoWeekLow: parseFloat((basePrice * (0.6 + symbolHash.price * 0.2)).toFixed(2)),
-      technicalIndicators: {
-        rsi: 25 + (symbolHash.technical * 50), // Different RSI for each stock
-        macd: -3 + (symbolHash.technical * 6), // Different MACD for each stock
-        movingAverages: {
-          sma20: parseFloat((basePrice * (0.9 + symbolHash.technical * 0.2)).toFixed(2)),
-          sma50: parseFloat((basePrice * (0.8 + symbolHash.technical * 0.3)).toFixed(2)),
-          sma200: parseFloat((basePrice * (0.7 + symbolHash.technical * 0.4)).toFixed(2))
-        }
-      }
-    };
-  }
-
-  // Helper methods to generate stock-specific data
-  hashSymbol(symbol) {
-    let hash = 0;
-    for (let i = 0; i < symbol.length; i++) {
-      const char = symbol.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    // Add more variation by using different parts of the hash
-    const normalizedHash = Math.abs(hash) / 2147483647;
-    // Use different parts of the hash for different metrics
-    return {
-      price: (normalizedHash * 1000) % 1,
-      volume: (normalizedHash * 2000) % 1,
-      technical: (normalizedHash * 3000) % 1,
-      fundamental: (normalizedHash * 4000) % 1
-    };
-  }
-
-  getStockSpecificPrice(symbol, hash) {
-    // Different price ranges for different stock types
-    if (symbol.includes('AAPL') || symbol.includes('MSFT') || symbol.includes('GOOGL')) {
-      return 150 + (hash * 100); // Tech stocks: $150-250
-    } else if (symbol.includes('JPM') || symbol.includes('BAC') || symbol.includes('WFC')) {
-      return 30 + (hash * 70); // Financial stocks: $30-100
-    } else if (symbol.includes('XOM') || symbol.includes('CVX')) {
-      return 80 + (hash * 60); // Energy stocks: $80-140
-    } else if (symbol.includes('TSLA')) {
-      return 200 + (hash * 100); // Tesla: $200-300
-    } else {
-      return 50 + (hash * 150); // Default: $50-200
-    }
-  }
-
-  getStockSpecificVolume(symbol, hash) {
-    // Different volume ranges for different stock types
-    if (symbol.includes('AAPL') || symbol.includes('TSLA')) {
-      return 5000000 + (hash * 10000000); // High volume stocks
-    } else if (symbol.includes('MSFT') || symbol.includes('GOOGL')) {
-      return 3000000 + (hash * 7000000); // Medium-high volume
-    } else {
-      return 500000 + (hash * 2000000); // Default volume
-    }
-  }
-
-  getStockSpecificMarketCap(symbol, basePrice, hash) {
-    // Different market cap ranges for different stock types
-    if (symbol.includes('AAPL') || symbol.includes('MSFT') || symbol.includes('GOOGL')) {
-      return basePrice * (5000000 + hash * 5000000); // Mega cap
-    } else if (symbol.includes('TSLA')) {
-      return basePrice * (3000000 + hash * 2000000); // Large cap
-    } else {
-      return basePrice * (1000000 + hash * 4000000); // Default
-    }
-  }
-
-  getStockType(symbol) {
-    if (symbol.includes('AAPL') || symbol.includes('MSFT') || symbol.includes('GOOGL') || symbol.includes('TSLA')) {
-      return 'tech';
-    } else if (symbol.includes('JPM') || symbol.includes('BAC') || symbol.includes('WFC')) {
-      return 'financial';
-    } else if (symbol.includes('XOM') || symbol.includes('CVX')) {
-      return 'energy';
-    } else {
-      return 'general';
-    }
-  }
-
-  getSectorContext(stockType) {
-    const contexts = {
-      tech: 'Technology sector with focus on innovation and growth',
-      financial: 'Financial services sector with regulatory considerations',
-      energy: 'Energy sector with commodity price sensitivity',
-      general: 'Diversified sector with mixed market dynamics'
-    };
-    return contexts[stockType] || contexts.general;
-  }
-
   async fetchRealStockData(symbol) {
     try {
       console.log(`📊 [StockDataAgent] Fetching real data for ${symbol}`);
@@ -582,7 +472,7 @@ Provide detailed, professional analysis specific to ${symbol} suitable for inves
     }
 
     const url = `${config.apiEndpoints.alphaVantage}?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${config.apiKeys.alphaVantage}`;
-    const response = await axios.get(url);
+    const response = await axios.get(url, { timeout: 10000 }); // 10 seconds timeout
     
     if (response.data['Error Message']) {
       throw new Error(response.data['Error Message']);
@@ -611,7 +501,7 @@ Provide detailed, professional analysis specific to ${symbol} suitable for inves
     }
 
     const url = `${config.apiEndpoints.finnhub}/quote?symbol=${symbol}&token=${config.apiKeys.finnhub}`;
-    const response = await axios.get(url);
+    const response = await axios.get(url, { timeout: 10000 }); // 10 seconds timeout
     
     if (response.data.error) {
       throw new Error(response.data.error);
@@ -635,7 +525,7 @@ Provide detailed, professional analysis specific to ${symbol} suitable for inves
     }
 
     const url = `${config.apiEndpoints.twelveData}/quote?symbol=${symbol}&apikey=${config.apiKeys.twelveData}`;
-    const response = await axios.get(url);
+    const response = await axios.get(url, { timeout: 10000 }); // 10 seconds timeout
     
     if (response.data.status === 'error') {
       throw new Error(response.data.message);
@@ -663,7 +553,7 @@ Provide detailed, professional analysis specific to ${symbol} suitable for inves
       if (config.apiKeys.twelveData) {
         try {
           const rsiUrl = `${config.apiEndpoints.twelveData}/rsi?symbol=${symbol}&interval=1day&apikey=${config.apiKeys.twelveData}`;
-          const rsiResponse = await axios.get(rsiUrl);
+          const rsiResponse = await axios.get(rsiUrl, { timeout: 10000 }); // 10 seconds timeout
           if (rsiResponse.data.status !== 'error') {
             indicators.rsi = parseFloat(rsiResponse.data.values[0].rsi);
           }
@@ -676,7 +566,7 @@ Provide detailed, professional analysis specific to ${symbol} suitable for inves
       if (config.apiKeys.twelveData) {
         try {
           const macdUrl = `${config.apiEndpoints.twelveData}/macd?symbol=${symbol}&interval=1day&apikey=${config.apiKeys.twelveData}`;
-          const macdResponse = await axios.get(macdUrl);
+          const macdResponse = await axios.get(macdUrl, { timeout: 10000 }); // 10 seconds timeout
           if (macdResponse.data.status !== 'error') {
             indicators.macd = parseFloat(macdResponse.data.values[0].macd);
           }
@@ -689,7 +579,7 @@ Provide detailed, professional analysis specific to ${symbol} suitable for inves
       if (config.apiKeys.twelveData) {
         try {
           const smaUrl = `${config.apiEndpoints.twelveData}/sma?symbol=${symbol}&interval=1day&time_period=20&apikey=${config.apiKeys.twelveData}`;
-          const smaResponse = await axios.get(smaUrl);
+          const smaResponse = await axios.get(smaUrl, { timeout: 10000 }); // 10 seconds timeout
           if (smaResponse.data.status !== 'error') {
             indicators.movingAverages = {
               sma20: parseFloat(smaResponse.data.values[0].sma)

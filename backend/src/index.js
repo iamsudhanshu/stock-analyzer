@@ -239,15 +239,24 @@ class ApplicationManager {
     console.log('📊 [ApplicationManager] Startup summary:', summary);
     logger.info('Application startup summary:', summary);
 
-    // Log configuration warnings
-    if (!config.apiKeys.alphaVantage && !config.apiKeys.finnhub) {
-      console.log('⚠️ [ApplicationManager] No stock data API keys configured - using mock data');
-      logger.warn('No stock data API keys configured - using mock data');
+    // Log configuration warnings for missing API keys
+    const missingApis = [];
+    
+    if (!config.apiKeys.alphaVantage && !config.apiKeys.finnhub && !config.apiKeys.twelveData) {
+      missingApis.push('stock data APIs (Alpha Vantage, Finnhub, or Twelve Data)');
     }
 
-    if (!config.apiKeys.newsApi) {
-      console.log('⚠️ [ApplicationManager] No news API key configured - using mock data');
-      logger.warn('No news API key configured - using mock data');
+    if (!config.apiKeys.newsApi && !config.apiKeys.newsData && !config.apiKeys.webz) {
+      missingApis.push('news APIs (News API, NewsData.io, or Webz.io)');
+    }
+
+    if (missingApis.length > 0) {
+      console.log(`⚠️ [ApplicationManager] Missing API keys for: ${missingApis.join(', ')}`);
+      console.log('⚠️ [ApplicationManager] Real data fetching will fail - configure API keys for production use');
+      logger.warn(`Missing API keys for: ${missingApis.join(', ')}`);
+    } else {
+      console.log('✅ [ApplicationManager] All required API keys are configured');
+      logger.info('All required API keys are configured');
     }
   }
 

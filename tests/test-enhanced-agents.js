@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-const config = require('./backend/src/config');
-const logger = require('./backend/src/utils/logger');
+const config = require('../backend/src/config');
+const logger = require('../backend/src/utils/logger');
 
 // Import the new agents
-const EnhancedDataAgent = require('./backend/src/agents/enhancedDataAgent');
-const AdvancedTechnicalAgent = require('./backend/src/agents/advancedTechnicalAgent');
-const ReportGeneratorAgent = require('./backend/src/agents/reportGeneratorAgent');
+const EnhancedDataAgent = require('../backend/src/agents/enhancedDataAgent');
+const AdvancedTechnicalAgent = require('../backend/src/agents/advancedTechnicalAgent');
+const ReportGeneratorAgent = require('../backend/src/agents/reportGeneratorAgent');
 
 async function testEnhancedAgents() {
   console.log('🧪 Testing Enhanced Stock Analysis Agents...\n');

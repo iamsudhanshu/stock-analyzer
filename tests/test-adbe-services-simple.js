@@ -1,12 +1,18 @@
 #!/usr/bin/env node
 
-const config = require('./backend/src/config');
-const logger = require('./backend/src/utils/logger');
-const OllamaService = require('./backend/src/utils/ollama');
+const config = require('../backend/src/config');
+const logger = require('../backend/src/utils/logger');
+const OllamaService = require('../backend/src/utils/ollama');
 
 // Import agents
-const StockDataAgent = require('./backend/src/agents/stockDataAgent');
-const NewsSentimentAgent = require('./backend/src/agents/newsSentimentAgent');
+const StockDataAgent = require('../backend/src/agents/stockDataAgent');
+const NewsSentimentAgent = require('../backend/src/agents/newsSentimentAgent');
+const FundamentalDataAgent = require('../backend/src/agents/fundamentalDataAgent');
+const CompetitiveAgent = require('../backend/src/agents/competitiveAgent');
+const AdvancedTechnicalAgent = require('../backend/src/agents/advancedTechnicalAgent');
+const EnhancedDataAgent = require('../backend/src/agents/enhancedDataAgent');
+const ReportGeneratorAgent = require('../backend/src/agents/reportGeneratorAgent');
+const UIAgent = require('../backend/src/agents/uiAgent');
 
 const TEST_SYMBOL = 'ADBE';
 
